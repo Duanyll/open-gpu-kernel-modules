@@ -1,0 +1,39 @@
+PACKAGE_NAME="nvidia-open-p2p"
+PACKAGE_VERSION="580.95.05"
+AUTOINSTALL="yes"
+
+# Build command
+PROCS_NUM=$(nproc)
+[ $PROCS_NUM -gt 16 ] && PROCS_NUM=16
+MAKE[0]="unset ARCH; env NV_VERBOSE=1 'make' -j$PROCS_NUM NV_EXCLUDE_BUILD_MODULES='' KERNEL_UNAME=${kernelver} IGNORE_CC_MISMATCH=1 SYSSRC=$kernel_source_dir modules"
+CLEAN="make clean || true"
+
+# nvidia.ko
+BUILT_MODULE_NAME[0]="nvidia"
+BUILT_MODULE_LOCATION[0]="kernel-open"
+DEST_MODULE_NAME[0]="nvidia"
+DEST_MODULE_LOCATION[0]="/updates/dkms"
+
+# nvidia-modeset.ko
+BUILT_MODULE_NAME[1]="nvidia-modeset"
+BUILT_MODULE_LOCATION[1]="kernel-open"
+DEST_MODULE_NAME[1]="nvidia-modeset"
+DEST_MODULE_LOCATION[1]="/updates/dkms"
+
+# nvidia-drm.ko
+BUILT_MODULE_NAME[2]="nvidia-drm"
+BUILT_MODULE_LOCATION[2]="kernel-open"
+DEST_MODULE_NAME[2]="nvidia-drm"
+DEST_MODULE_LOCATION[2]="/updates/dkms"
+
+# nvidia-uvm.ko
+BUILT_MODULE_NAME[3]="nvidia-uvm"
+BUILT_MODULE_LOCATION[3]="kernel-open"
+DEST_MODULE_NAME[3]="nvidia-uvm"
+DEST_MODULE_LOCATION[3]="/updates/dkms"
+
+# nvidia-peermem.ko
+BUILT_MODULE_NAME[4]="nvidia-peermem"
+BUILT_MODULE_LOCATION[4]="kernel-open"
+DEST_MODULE_NAME[4]="nvidia-peermem"
+DEST_MODULE_LOCATION[4]="/updates/dkms"

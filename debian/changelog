@@ -1,0 +1,7 @@
+nvidia-open-gpu-kernel-modules-p2p (580.95.05-1) unstable; urgency=medium
+
+  * Initial packaging of P2P-enabled NVIDIA open kernel modules
+  * Based on tinygrad/open-gpu-kernel-modules fork
+  * Enables BAR1 P2P mode for RTX 4090 and RTX 5090 GPUs
+
+ -- Local Build <local@localhost>  Wed, 11 Dec 2024 00:00:00 +0000

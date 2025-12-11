@@ -1,0 +1,38 @@
+Source: nvidia-open-gpu-kernel-modules-p2p
+Section: contrib/kernel
+Priority: optional
+Maintainer: Local Build <local@localhost>
+Build-Depends:
+ debhelper-compat (= 13),
+ dh-sequence-dkms,
+Rules-Requires-Root: no
+Standards-Version: 4.6.2
+Homepage: https://github.com/tinygrad/open-gpu-kernel-modules
+
+Package: nvidia-kernel-open-p2p-dkms
+Architecture: amd64
+Multi-Arch: foreign
+Depends:
+ ${misc:Depends}
+Recommends:
+ nvidia-driver-580 | nvidia-driver-575
+Conflicts:
+ nvidia-dkms-580,
+ nvidia-dkms-580-open,
+ nvidia-dkms-575,
+ nvidia-dkms-575-open,
+ nvidia-open-kernel-dkms
+Provides:
+ nvidia-dkms-580-open
+Description: NVIDIA open kernel module with P2P support (DKMS)
+ This package builds the NVIDIA open kernel modules with P2P (peer-to-peer)
+ support enabled for RTX 4090 and RTX 5090 GPUs, using DKMS.
+ .
+ This is a modified version of the official NVIDIA open-gpu-kernel-modules
+ that forces BAR1 P2P mode on consumer GPUs.
+ .
+ WARNING: IOMMU virtualization must be disabled (use iommu=pt kernel param).
+ .
+ Provided that you have the kernel header packages installed, the kernel
+ module will be built for your running kernel and automatically rebuilt for
+ any new kernel headers that are installed.
