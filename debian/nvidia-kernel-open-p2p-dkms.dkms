@@ -1,5 +1,11 @@
 PACKAGE_NAME="nvidia-open-p2p"
 PACKAGE_VERSION="580.95.05"
+
+BUILD_EXCLUSIVE_KERNEL_MIN="4.15"
+
+# The NVIDIA driver does not support real-time kernels.
+BUILD_EXCLUSIVE_CONFIG="!CONFIG_PREEMPT_RT !CONFIG_PREEMPT_RT_FULL"
+
 AUTOINSTALL="yes"
 
 # Build command

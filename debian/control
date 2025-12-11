@@ -5,6 +5,7 @@ Maintainer: Local Build <local@localhost>
 Build-Depends:
  debhelper-compat (= 13),
  dh-sequence-dkms,
+ quilt,
 Rules-Requires-Root: no
 Standards-Version: 4.6.2
 Homepage: https://github.com/tinygrad/open-gpu-kernel-modules

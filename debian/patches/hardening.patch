@@ -1,0 +1,13 @@
+Description: ensure we use all hardening flags
+Author: Andreas Beckmann <anbe@debian.org>
+
+--- a/utils.mk
++++ b/utils.mk
+@@ -38,6 +38,7 @@ LD                    ?= ld
+ AR                    ?= ar
+ # only set these warnings if CFLAGS is unset
+ CFLAGS                ?= -Wall
++CFLAGS                += $(CPPFLAGS)
+ # always set these -f CFLAGS
+ CFLAGS                += -fno-strict-aliasing -fno-omit-frame-pointer -Wformat=2
+ CC_ONLY_CFLAGS        ?= -Wstrict-prototypes -Wold-style-definition

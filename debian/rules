@@ -1,9 +1,25 @@
 #!/usr/bin/make -f
 
+# For reproducible builds.
+export DATE     = env LC_ALL=POSIX date --utc --date="@$(SOURCE_DATE_EPOCH)"
+export WHOAMI   = echo buildd
+export HOSTNAME = debian
+
+# The generated object files are linked into kernel modules.
+# Must disable stackprotector for kernel modules.
 export DEB_BUILD_MAINT_OPTIONS = hardening=-stackprotector
+
+# Clear LDFLAGS to prevent dpkg-buildpackage from passing gcc-style linker
+# flags (like -Wl,-z,relro or -Wl,-Bsymbolic-functions) which are incompatible
+# with direct ld invocation used by the kernel module build system.
+export LDFLAGS =
 
 %:
 	dh $@
+
+override_dh_auto_configure:
+	# Apply patches
+	QUILT_PATCHES=debian/patches quilt --quiltrc /dev/null push -a || test $$? = 2
 
 override_dh_auto_build:
 	# Build the OS-agnostic parts (nv-kernel.o and nv-modeset-kernel.o)
@@ -16,6 +32,9 @@ override_dh_auto_install:
 
 override_dh_auto_clean:
 	$(MAKE) clean || true
+	# Unapply patches
+	QUILT_PATCHES=debian/patches quilt --quiltrc /dev/null pop -a || test $$? = 2
+	$(RM) -r .pc/
 
 override_dh_auto_test:
 	# Skip tests
