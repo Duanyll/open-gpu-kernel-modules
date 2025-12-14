@@ -14,17 +14,17 @@ Package: nvidia-kernel-open-p2p-dkms
 Architecture: amd64
 Multi-Arch: foreign
 Depends:
+ dkms,
  ${misc:Depends}
-Recommends:
- nvidia-driver-580 | nvidia-driver-575
 Conflicts:
  nvidia-dkms-580,
- nvidia-dkms-580-open,
- nvidia-dkms-575,
- nvidia-dkms-575-open,
- nvidia-open-kernel-dkms
-Provides:
  nvidia-dkms-580-open
+Replaces:
+ nvidia-dkms-580,
+ nvidia-dkms-580-open
+Provides:
+ nvidia-dkms-580 (= 580.95.05),
+ nvidia-dkms-580-open (= 580.95.05)
 Description: NVIDIA open kernel module with P2P support (DKMS)
  This package builds the NVIDIA open kernel modules with P2P (peer-to-peer)
  support enabled for RTX 4090 and RTX 5090 GPUs, using DKMS.

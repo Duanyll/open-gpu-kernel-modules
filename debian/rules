@@ -9,6 +9,9 @@ export HOSTNAME = debian
 # Must disable stackprotector for kernel modules.
 export DEB_BUILD_MAINT_OPTIONS = hardening=-stackprotector
 
+# Avoid warnings on C++ compilation
+export DEB_CFLAGS_MAINT_STRIP = -Werror=implicit-function-declaration
+
 # Clear LDFLAGS to prevent dpkg-buildpackage from passing gcc-style linker
 # flags (like -Wl,-z,relro or -Wl,-Bsymbolic-functions) which are incompatible
 # with direct ld invocation used by the kernel module build system.
@@ -30,8 +33,19 @@ override_dh_auto_build:
 override_dh_auto_install:
 	# Nothing to install, dh_dkms handles everything
 
+# Clean up template files from the installed DKMS source directory
+# Keep .o_binary files as they are required precompiled driver cores
+execute_after_dh_install:
+	find debian/nvidia-kernel-open-p2p-dkms/usr/src -name '*.binary' -print -delete || true
+	find debian/nvidia-kernel-open-p2p-dkms/usr/src -name '*.in' -not -name '*.modules.in' -print -delete || true
+
 override_dh_auto_clean:
-	$(MAKE) clean || true
+	# Clean specific nvidia modules
+	$(MAKE) nvidia.clean nvidia-modeset.clean || true
+	# Remove .o_binary build artifacts
+	find kernel-open -name '*.o_binary' | xargs -r $(RM) -v
+
+execute_after_dh_clean:
 	# Unapply patches
 	QUILT_PATCHES=debian/patches quilt --quiltrc /dev/null pop -a || test $$? = 2
 	$(RM) -r .pc/
