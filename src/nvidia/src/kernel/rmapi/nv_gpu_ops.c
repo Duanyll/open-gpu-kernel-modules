@@ -229,7 +229,21 @@ typedef struct
 
     NvHandle       hP2pObject;
     PORT_ATOMIC NvU64 p2pObjectRef;
+
+    // (METHOD3 fields below; helper definitions follow the P2P caps helpers.)
+    //
+    // METHOD3: dynamic per-allocation BAR1 P2P mappings.
+    // List of gpuDynBar1P2PMapping keyed by the duped peer-memory handle,
+    // protected by pDynBar1Mutex. Used when BAR1 < FB (static BAR1 P2P
+    // unavailable) to map each peer-shared allocation individually into the
+    // remote GPU's BAR1 instead of relying on a whole-FB identity map.
+    //
+    struct gpuDynBar1P2PMapping *pDynBar1List;
+    PORT_MUTEX    *pDynBar1Mutex;
 } subDeviceDesc;
+
+// METHOD3: used before its definition in the subdevice teardown path.
+static void _nvGpuOpsDynBar1DestroyAll(subDeviceDesc *rmSubDevice);
 
 struct gpuSession
 {
@@ -1847,6 +1861,14 @@ static NV_STATUS nvGpuOpsRmSubDeviceCreate(struct gpuDevice *device)
 
     portMemSet(rmSubDevice, 0, sizeof(*rmSubDevice));
 
+    // METHOD3: mutex protecting the dynamic BAR1 P2P mapping list.
+    rmSubDevice->pDynBar1Mutex = portSyncMutexCreate(portMemAllocatorGetGlobalNonPaged());
+    if (rmSubDevice->pDynBar1Mutex == NULL)
+    {
+        status = NV_ERR_NO_MEMORY;
+        goto cleanup_subdevice_desc;
+    }
+
     device->rmSubDevice = rmSubDevice;
     rmSubDevice->refCount = 1;
     nv2080AllocParams.subDeviceId = device->subdeviceInstance;
@@ -2366,6 +2388,13 @@ NV_STATUS nvGpuOpsDeviceDestroy(struct gpuDevice *device)
 
         NV_ASSERT(rmSubDevice->hP2pObject == 0);
         NV_ASSERT(rmSubDevice->p2pObjectRef == 0);
+
+        // METHOD3: drain any leftover dynamic BAR1 P2P mappings, then destroy mutex.
+        if (rmSubDevice->pDynBar1Mutex != NULL)
+        {
+            _nvGpuOpsDynBar1DestroyAll(rmSubDevice);
+            portSyncMutexDestroy(rmSubDevice->pDynBar1Mutex);
+        }
 
         portMemFree(rmSubDevice);
         portSyncRwLockReleaseWrite(rmDevice->btreeLock);
@@ -3256,26 +3285,50 @@ NV_STATUS nvGpuOpsGetP2PCaps(struct gpuDevice *device1,
                 OBJGPU *pLocalGpu    = gpumgrGetGpuFromId(device1->gpuId);
                 OBJGPU *pRemoteGpu   = gpumgrGetGpuFromId(device2->gpuId);
 
-                // Get BAR1 P2P DMA info using from local to peer
-                NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
-                    kbusGetBar1P2PDmaInfo_HAL(pLocalGpu,
-                                              pRemoteGpu,
-                                              GPU_GET_KERNEL_BUS(pRemoteGpu),
-                                              &p2pCapsParams->bar1DmaAddress[0],
-                                              &p2pCapsParams->bar1DmaSize[0]),
-                    cleanup);
+                //
+                // METHOD3: with dynamic BAR1 P2P (the accessed GPU's static BAR1
+                // is disabled because its BAR1 < FB, e.g. the 48GB 4090) there is
+                // no single whole-FB BAR1 region, hence no global DMA base/size.
+                // Each peer allocation gets its own BAR1 window at map time (see
+                // nvGpuOpsGetExternalAllocPtesOrPhysAddrs). Report 0/0 here; UVM
+                // uses these only for its own physical CE peer-copies of managed
+                // memory, which the dynamic path does not support. kbusGetBar1P2PDmaInfo
+                // is only valid when static BAR1 is enabled, so guard the calls.
+                //
+                // [0] = local accessing remote -> reads the remote GPU's static region.
+                if (kbusIsStaticBar1Enabled(pRemoteGpu, GPU_GET_KERNEL_BUS(pRemoteGpu)))
+                {
+                    NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
+                        kbusGetBar1P2PDmaInfo_HAL(pLocalGpu, pRemoteGpu,
+                                                  GPU_GET_KERNEL_BUS(pRemoteGpu),
+                                                  &p2pCapsParams->bar1DmaAddress[0],
+                                                  &p2pCapsParams->bar1DmaSize[0]),
+                        cleanup);
+                }
+                else
+                {
+                    p2pCapsParams->bar1DmaAddress[0] = 0;
+                    p2pCapsParams->bar1DmaSize[0] = 0;
+                }
                 p2pCapsParams->bar1PcieAtomics[0] = _nvGpuOpsIsBar1P2pAtomicEnabled(device1->session,
                                                                                     pLocalGpu,
                                                                                     pRemoteGpu);
 
-                // Get BAR1 P2P DMA info using from peer to local
-                NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
-                    kbusGetBar1P2PDmaInfo_HAL(pRemoteGpu,
-                                              pLocalGpu,
-                                              GPU_GET_KERNEL_BUS(pLocalGpu),
-                                              &p2pCapsParams->bar1DmaAddress[1],
-                                              &p2pCapsParams->bar1DmaSize[1]),
-                    cleanup);
+                // [1] = remote accessing local -> reads the local GPU's static region.
+                if (kbusIsStaticBar1Enabled(pLocalGpu, GPU_GET_KERNEL_BUS(pLocalGpu)))
+                {
+                    NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
+                        kbusGetBar1P2PDmaInfo_HAL(pRemoteGpu, pLocalGpu,
+                                                  GPU_GET_KERNEL_BUS(pLocalGpu),
+                                                  &p2pCapsParams->bar1DmaAddress[1],
+                                                  &p2pCapsParams->bar1DmaSize[1]),
+                        cleanup);
+                }
+                else
+                {
+                    p2pCapsParams->bar1DmaAddress[1] = 0;
+                    p2pCapsParams->bar1DmaSize[1] = 0;
+                }
                 p2pCapsParams->bar1PcieAtomics[1] = _nvGpuOpsIsBar1P2pAtomicEnabled(device2->session,
                                                                                     pRemoteGpu,
                                                                                     pLocalGpu);
@@ -3569,6 +3622,253 @@ done:
     return status;
 }
 
+//
+// =====================================================================
+// METHOD3: Dynamic per-allocation BAR1 P2P mapping.
+//
+// Static BAR1 P2P (kbusGetBar1P2PDmaInfo_HAL) encodes peer addresses as
+// remoteBar1PhysBase + fbPhysOffset, which only works when the remote GPU's
+// whole framebuffer is identity-mapped into BAR1 -- i.e. BAR1 >= FB. On the
+// leaked-VBIOS 48GB RTX 4090 (AD102, 32GB BAR1 / 48GB FB) static BAR1 cannot
+// be enabled, so that scheme breaks.
+//
+// Instead, for each peer-shared allocation we map *that allocation* into the
+// remote GPU's BAR1 via the generic dynamic aperture (kbusMapFbAperture_HAL,
+// the same primitive GPUDirect-RDMA / third_party_p2p.c uses), describe the
+// resulting BAR1 window as sysmem, IOMMU-map it into the source GPU's IOVA,
+// and encode the source PTEs as windowDmaBase + offsetWithinAllocation. The
+// remote BAR1 GMMU indirection lets the allocation live anywhere in the 48GB
+// FB while only its BAR1 *window* (bounded by total peer-shared bytes, ~tens
+// of MB for NCCL) needs to fit in the 32GB aperture. Lifecycle is tied to the
+// duped peer-memory handle: created lazily on first PTE build, destroyed in
+// nvGpuOpsFreeDupedHandle().
+//
+// TODO(method3): explicit BAR1 byte-budget admission + graceful reject so a
+// large user-registered buffer can fall back instead of failing the map.
+// =====================================================================
+//
+typedef struct gpuDynBar1P2PMapping
+{
+    struct gpuDynBar1P2PMapping *pNext;
+    NvHandle            hDupMemory;        // key: duped peer-mem handle in session
+    NvU32               mappingGpuInstance;
+    OBJGPU             *pRemoteGpu;        // FB owner (peer)
+    MEMORY_DESCRIPTOR  *pAllocMemDesc;     // peer allocation, mapped into remote BAR1
+    MEMORY_DESCRIPTOR  *pWindowMemDesc;    // ADDR_SYSMEM desc of the remote BAR1 window
+    MemoryArea          memArea;           // remote BAR1 VA mapping (for kbusUnmapFbAperture)
+    NvU64               size;
+    NvU32               iovaspaceId;       // source GPU IOVA space the window is mapped into
+    RmPhysAddr          windowDmaBase;     // source-visible IOVA of window byte 0
+} gpuDynBar1P2PMapping;
+
+// Caller must hold rmSubDevice->pDynBar1Mutex.
+static gpuDynBar1P2PMapping *
+_nvGpuOpsDynBar1Find(subDeviceDesc *rmSubDevice, NvHandle hDupMemory)
+{
+    gpuDynBar1P2PMapping *pMap;
+    for (pMap = rmSubDevice->pDynBar1List; pMap != NULL; pMap = pMap->pNext)
+    {
+        if (pMap->hDupMemory == hDupMemory)
+            return pMap;
+    }
+    return NULL;
+}
+
+//
+// Map pAllocMemDesc (owned by pRemoteGpu) into pRemoteGpu's BAR1, IOMMU-map
+// the window into pMappingGpu's IOVA, track it, and return the source-visible
+// DMA base. Caller must hold rmSubDevice->pDynBar1Mutex and the RMAPI lock;
+// the remote GPU lock is acquired here if not already held.
+//
+static NV_STATUS
+_nvGpuOpsDynBar1Create(subDeviceDesc *rmSubDevice,
+                       OBJGPU *pMappingGpu,
+                       OBJGPU *pRemoteGpu,
+                       MEMORY_DESCRIPTOR *pAllocMemDesc,
+                       NvHandle hDupMemory,
+                       RmPhysAddr *pWindowDmaBase)
+{
+    NV_STATUS           status;
+    KernelBus          *pRemoteKernelBus = GPU_GET_KERNEL_BUS(pRemoteGpu);
+    MEMORY_DESCRIPTOR  *pWin = NULL;
+    MemoryArea          memArea;
+    NvU64               size = memdescGetSize(pAllocMemDesc);
+    RmPhysAddr          windowPhys;
+    RmPhysAddr          dmaBase = 0;
+    gpuDynBar1P2PMapping *pMap;
+    NvBool              bRemoteLockTaken = (rmDeviceGpuLockIsOwner(gpuGetInstance(pRemoteGpu)) ||
+                                            rmGpuLockIsOwner());
+    NvBool              bMapped = NV_FALSE;
+
+    portMemSet(&memArea, 0, sizeof(memArea));
+
+    // 1. Map the allocation into the remote GPU's BAR1 (dynamic aperture).
+    if (!bRemoteLockTaken)
+    {
+        NV_CHECK_OK_OR_RETURN(LEVEL_ERROR,
+            rmDeviceGpuLocksAcquire(pRemoteGpu, GPUS_LOCK_FLAGS_NONE, RM_LOCK_MODULES_P2P));
+    }
+
+    status = kbusMapFbAperture_HAL(pRemoteGpu, pRemoteKernelBus,
+                                   pAllocMemDesc,
+                                   mrangeMake(0, size),
+                                   &memArea,
+                                   BUS_MAP_FB_FLAGS_MAP_UNICAST | BUS_MAP_FB_FLAGS_ALLOW_DISCONTIG,
+                                   NULL);
+
+    if (!bRemoteLockTaken)
+        rmDeviceGpuLocksRelease(pRemoteGpu, GPUS_LOCK_FLAGS_NONE, NULL);
+
+    if (status != NV_OK)
+        return status;
+
+    bMapped = NV_TRUE;
+    NV_ASSERT_TRUE_OR_GOTO(status, (memArea.numRanges >= 1), NV_ERR_INVALID_STATE, fail);
+
+    windowPhys = gpumgrGetGpuPhysFbAddr(pRemoteGpu) + memArea.pRanges[0].start;
+
+    // 2. Describe the remote BAR1 window as sysmem; IOMMU-map into the source GPU.
+    NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
+        memdescCreate(&pWin, pMappingGpu, size, 0, NV_MEMORY_CONTIGUOUS,
+                      ADDR_SYSMEM, NV_MEMORY_UNCACHED, MEMDESC_FLAGS_NONE),
+        fail);
+    memdescDescribe(pWin, ADDR_SYSMEM, windowPhys, size);
+
+    NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
+        memdescMapIommu(pWin, pMappingGpu->busInfo.iovaspaceId),
+        fail);
+
+    memdescGetPtePhysAddrsForGpu(pWin, pMappingGpu, AT_GPU, 0, 0, 1, &dmaBase);
+
+    // 3. Track it.
+    pMap = portMemAllocNonPaged(sizeof(*pMap));
+    if (pMap == NULL)
+    {
+        status = NV_ERR_NO_MEMORY;
+        memdescUnmapIommu(pWin, pMappingGpu->busInfo.iovaspaceId);
+        goto fail;
+    }
+    portMemSet(pMap, 0, sizeof(*pMap));
+    pMap->hDupMemory         = hDupMemory;
+    pMap->mappingGpuInstance = gpuGetInstance(pMappingGpu);
+    pMap->pRemoteGpu         = pRemoteGpu;
+    pMap->pAllocMemDesc      = pAllocMemDesc;
+    pMap->pWindowMemDesc     = pWin;
+    pMap->memArea            = memArea;
+    pMap->size               = size;
+    pMap->iovaspaceId        = pMappingGpu->busInfo.iovaspaceId;
+    pMap->windowDmaBase      = dmaBase;
+
+    pMap->pNext = rmSubDevice->pDynBar1List;
+    rmSubDevice->pDynBar1List = pMap;
+
+    *pWindowDmaBase = dmaBase;
+    return NV_OK;
+
+fail:
+    if (pWin != NULL)
+        memdescDestroy(pWin);
+    if (bMapped)
+    {
+        NvBool bTaken = (rmDeviceGpuLockIsOwner(gpuGetInstance(pRemoteGpu)) || rmGpuLockIsOwner());
+        if (!bTaken)
+            (void)rmDeviceGpuLocksAcquire(pRemoteGpu, GPUS_LOCK_FLAGS_NONE, RM_LOCK_MODULES_P2P);
+        kbusUnmapFbAperture_HAL(pRemoteGpu, pRemoteKernelBus, pAllocMemDesc, memArea,
+                                BUS_MAP_FB_FLAGS_MAP_UNICAST);
+        if (!bTaken)
+            rmDeviceGpuLocksRelease(pRemoteGpu, GPUS_LOCK_FLAGS_NONE, NULL);
+    }
+    return status;
+}
+
+// Look up, or lazily create, the dynamic BAR1 P2P window for a duped peer alloc.
+static NV_STATUS
+_nvGpuOpsDynBar1GetOrCreate(subDeviceDesc *rmSubDevice,
+                            OBJGPU *pMappingGpu,
+                            OBJGPU *pRemoteGpu,
+                            MEMORY_DESCRIPTOR *pAllocMemDesc,
+                            NvHandle hDupMemory,
+                            RmPhysAddr *pWindowDmaBase)
+{
+    NV_STATUS status = NV_OK;
+    gpuDynBar1P2PMapping *pMap;
+
+    portSyncMutexAcquire(rmSubDevice->pDynBar1Mutex);
+    pMap = _nvGpuOpsDynBar1Find(rmSubDevice, hDupMemory);
+    if (pMap != NULL)
+        *pWindowDmaBase = pMap->windowDmaBase;
+    else
+        status = _nvGpuOpsDynBar1Create(rmSubDevice, pMappingGpu, pRemoteGpu,
+                                        pAllocMemDesc, hDupMemory, pWindowDmaBase);
+    portSyncMutexRelease(rmSubDevice->pDynBar1Mutex);
+    return status;
+}
+
+// Tear down and free the dynamic BAR1 P2P window for a duped peer alloc, if any.
+static void
+_nvGpuOpsDynBar1Destroy(subDeviceDesc *rmSubDevice, NvHandle hDupMemory)
+{
+    gpuDynBar1P2PMapping *pMap = NULL;
+    gpuDynBar1P2PMapping *pPrev = NULL;
+    gpuDynBar1P2PMapping *pCur;
+    KernelBus *pRemoteKernelBus;
+    NvBool bTaken;
+
+    portSyncMutexAcquire(rmSubDevice->pDynBar1Mutex);
+    for (pCur = rmSubDevice->pDynBar1List; pCur != NULL; pPrev = pCur, pCur = pCur->pNext)
+    {
+        if (pCur->hDupMemory == hDupMemory)
+        {
+            if (pPrev != NULL)
+                pPrev->pNext = pCur->pNext;
+            else
+                rmSubDevice->pDynBar1List = pCur->pNext;
+            pMap = pCur;
+            break;
+        }
+    }
+    portSyncMutexRelease(rmSubDevice->pDynBar1Mutex);
+
+    if (pMap == NULL)
+        return;
+
+    // Release source IOMMU mapping + window descriptor, then remote BAR1 mapping.
+    memdescUnmapIommu(pMap->pWindowMemDesc, pMap->iovaspaceId);
+    memdescDestroy(pMap->pWindowMemDesc);
+
+    pRemoteKernelBus = GPU_GET_KERNEL_BUS(pMap->pRemoteGpu);
+    bTaken = (rmDeviceGpuLockIsOwner(gpuGetInstance(pMap->pRemoteGpu)) || rmGpuLockIsOwner());
+    if (!bTaken)
+        (void)rmDeviceGpuLocksAcquire(pMap->pRemoteGpu, GPUS_LOCK_FLAGS_NONE, RM_LOCK_MODULES_P2P);
+    kbusUnmapFbAperture_HAL(pMap->pRemoteGpu, pRemoteKernelBus, pMap->pAllocMemDesc,
+                            pMap->memArea, BUS_MAP_FB_FLAGS_MAP_UNICAST);
+    if (!bTaken)
+        rmDeviceGpuLocksRelease(pMap->pRemoteGpu, GPUS_LOCK_FLAGS_NONE, NULL);
+
+    portMemFree(pMap);
+}
+
+// Drain and free all dynamic BAR1 P2P mappings on a subdevice (teardown path).
+static void
+_nvGpuOpsDynBar1DestroyAll(subDeviceDesc *rmSubDevice)
+{
+    NvHandle hDupMemory;
+
+    for (;;)
+    {
+        portSyncMutexAcquire(rmSubDevice->pDynBar1Mutex);
+        if (rmSubDevice->pDynBar1List == NULL)
+        {
+            portSyncMutexRelease(rmSubDevice->pDynBar1Mutex);
+            break;
+        }
+        hDupMemory = rmSubDevice->pDynBar1List->hDupMemory;
+        portSyncMutexRelease(rmSubDevice->pDynBar1Mutex);
+
+        _nvGpuOpsDynBar1Destroy(rmSubDevice, hDupMemory);
+    }
+}
+
 static GMMU_APERTURE nvGpuOpsGetExternalAllocAperture(struct gpuSession *session,
                                                       PMEMORY_DESCRIPTOR pMemDesc,
                                                       NvBool isIndirectPeerSupported,
@@ -3843,21 +4143,11 @@ nvGpuOpsMemGetPageSize
  * @param[in] dmaBaseAddress    : IOVA base address.
  * @param[in] count             : Count of physical addresses.
  */
-static void
-_nvGpuOpsEncodeBar1P2PAddrs
-(
-    NvU64 *pAddresses,
-    NvU64  dmaBaseAddress,
-    NvU64  count
-)
-{
-    NvU32 i;
-
-    for (i = 0; i < count; i++)
-    {
-        pAddresses[i] = dmaBaseAddress + pAddresses[i];
-    }
-}
+//
+// METHOD3: _nvGpuOpsEncodeBar1P2PAddrs() removed. The static-BAR1 identity
+// encode (dmaBase + fbPhysOffset) is superseded by the per-allocation dynamic
+// BAR1 window encode in nvGpuOpsBuildExternalAllocPtes/PhysAddrs.
+//
 
 static
 NV_STATUS
@@ -3875,7 +4165,8 @@ nvGpuOpsBuildExternalAllocPtes
     NvBool      isBar1P2PSupported,
     NvU32       peerId,
     gpuExternalMappingInfo *pGpuExternalMappingInfo,
-    RmPhysAddr bar1BusAddr
+    RmPhysAddr bar1BusAddr,
+    RmPhysAddr dynBar1DmaBase   // METHOD3: per-allocation dynamic BAR1 window base
 )
 {
     NV_STATUS               status              = NV_OK;
@@ -4193,31 +4484,45 @@ nvGpuOpsBuildExternalAllocPtes
 
     if (isBar1P2PSupported)
     {
-        OBJGPU *pRemoteGpu = pMemDesc->pGpu;
-        NvU64 dmaBaseAddress = 0;
-        NvU64 dmaSize = 0;
+        NvU64 i;
 
-        NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
-                            kbusGetBar1P2PDmaInfo_HAL(pMappingGpu, pRemoteGpu,
-                                                      GPU_GET_KERNEL_BUS(pRemoteGpu),
-                                                      &dmaBaseAddress,
-                                                      &dmaSize),
-                            done);
-
-        if (dmaBaseAddress == NV_U64_MAX)
+        if (dynBar1DmaBase != 0)
         {
-            NV_PRINTF(LEVEL_ERROR, "DMA base address is not set for BAR1P2P mapping\n");
-            status = NV_ERR_INVALID_STATE;
-            goto done;
+            //
+            // METHOD3 (dynamic): the remote BAR1 is smaller than its FB (e.g. 48GB
+            // 4090), so this allocation was mapped individually into the remote
+            // BAR1 and dynBar1DmaBase is the source-visible base of that window.
+            // The window is contiguous, so peer addr of page i = windowBase +
+            // (its offset within the allocation).
+            //
+            for (i = 0; i < pteCount; i++)
+                physicalAddresses[i] = dynBar1DmaBase + offset + i * (NvU64)mappingPageSize;
         }
-
-        if (dmaSize == 0)
+        else
         {
-            NV_PRINTF(LEVEL_ERROR, "DMA size is not set for BAR1P2P mapping\n");
-            status = NV_ERR_INVALID_STATE;
-            goto done;
+            //
+            // Static BAR1 identity region (normal cards, BAR1 >= FB): peer addr =
+            // staticRegionDmaBase + fbPhysOffset (physicalAddresses[] already holds
+            // the FB offsets from memdescGetPtePhysAddrsForGpu above).
+            //
+            OBJGPU *pRemoteGpu = pMemDesc->pGpu;
+            NvU64 dmaBaseAddress = 0;
+            NvU64 dmaSize = 0;
+
+            NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
+                                kbusGetBar1P2PDmaInfo_HAL(pMappingGpu, pRemoteGpu,
+                                                          GPU_GET_KERNEL_BUS(pRemoteGpu),
+                                                          &dmaBaseAddress, &dmaSize),
+                                done);
+            if ((dmaBaseAddress == NV_U64_MAX) || (dmaSize == 0))
+            {
+                NV_PRINTF(LEVEL_ERROR, "static BAR1 P2P DMA info not set\n");
+                status = NV_ERR_INVALID_STATE;
+                goto done;
+            }
+            for (i = 0; i < pteCount; i++)
+                physicalAddresses[i] = dmaBaseAddress + physicalAddresses[i];
         }
-        _nvGpuOpsEncodeBar1P2PAddrs(physicalAddresses, dmaBaseAddress, pteCount);
     }
     else
     {
@@ -4367,7 +4672,8 @@ nvGpuOpsBuildExternalAllocPhysAddrs
     NvBool      isBar1P2PSupported,
     NvU32       peerId,
     UvmGpuExternalPhysAddrInfo *pGpuExternalPhysAddrInfo,
-    RmPhysAddr bar1BusAddr
+    RmPhysAddr bar1BusAddr,
+    RmPhysAddr dynBar1DmaBase   // METHOD3: per-allocation dynamic BAR1 window base
 )
 {
     NV_STATUS               status              = NV_OK;
@@ -4533,31 +4839,35 @@ nvGpuOpsBuildExternalAllocPhysAddrs
 
     if (isBar1P2PSupported)
     {
-        OBJGPU *pRemoteGpu = pMemDesc->pGpu;
-        NvU64 dmaBaseAddress = 0;
-        NvU64 dmaSize = 0;
+        NvU64 i;
 
-        NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
-                            kbusGetBar1P2PDmaInfo_HAL(pMappingGpu, pRemoteGpu,
-                                                      GPU_GET_KERNEL_BUS(pRemoteGpu),
-                                                      &dmaBaseAddress,
-                                                      &dmaSize),
-                            done);
-
-        if (dmaBaseAddress == NV_U64_MAX)
+        if (dynBar1DmaBase != 0)
         {
-            NV_PRINTF(LEVEL_ERROR, "DMA base address is not set for BAR1P2P mapping\n");
-            status = NV_ERR_INVALID_STATE;
-            goto done;
+            // METHOD3 (dynamic): per-allocation BAR1 window; see PTE path above.
+            for (i = 0; i < physAddrCount; i++)
+                physicalAddresses[i] = dynBar1DmaBase + offset + i * (NvU64)mappingPageSize;
         }
-
-        if (dmaSize == 0)
+        else
         {
-            NV_PRINTF(LEVEL_ERROR, "DMA size is not set for BAR1P2P mapping\n");
-            status = NV_ERR_INVALID_STATE;
-            goto done;
+            // Static BAR1 identity region (normal cards, BAR1 >= FB).
+            OBJGPU *pRemoteGpu = pMemDesc->pGpu;
+            NvU64 dmaBaseAddress = 0;
+            NvU64 dmaSize = 0;
+
+            NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
+                                kbusGetBar1P2PDmaInfo_HAL(pMappingGpu, pRemoteGpu,
+                                                          GPU_GET_KERNEL_BUS(pRemoteGpu),
+                                                          &dmaBaseAddress, &dmaSize),
+                                done);
+            if ((dmaBaseAddress == NV_U64_MAX) || (dmaSize == 0))
+            {
+                NV_PRINTF(LEVEL_ERROR, "static BAR1 P2P DMA info not set\n");
+                status = NV_ERR_INVALID_STATE;
+                goto done;
+            }
+            for (i = 0; i < physAddrCount; i++)
+                physicalAddresses[i] = dmaBaseAddress + physicalAddresses[i];
         }
-        _nvGpuOpsEncodeBar1P2PAddrs(physicalAddresses, dmaBaseAddress, physAddrCount);
     }
     else
     {
@@ -4593,6 +4903,7 @@ NV_STATUS nvGpuOpsGetExternalAllocPtesOrPhysAddrs(struct gpuAddressSpace *vaSpac
     PMEMORY_DESCRIPTOR pMemDesc = NULL;
     OBJGPU *pMappingGpu = NULL;
     RmPhysAddr bar1BusAddr = 0;
+    RmPhysAddr dynBar1DmaBase = 0;   // METHOD3: per-allocation dynamic BAR1 window base
     NvU32 peerId = 0;
     NvBool isSliSupported = NV_FALSE;
     NvBool isPeerSupported = NV_FALSE;
@@ -4734,6 +5045,29 @@ NV_STATUS nvGpuOpsGetExternalAllocPtesOrPhysAddrs(struct gpuAddressSpace *vaSpac
                 goto freeGpaMemdesc;
 
             bar1BusAddr = gpumgrGetGpuPhysFbAddr(pAdjustedMemDesc->pGpu);
+
+            //
+            // METHOD3: when BAR1 P2P is used but the remote GPU's static BAR1 is
+            // NOT enabled (its BAR1 is smaller than its FB, e.g. the 48GB 4090),
+            // map this allocation individually into the remote BAR1 (dynamic
+            // aperture) and obtain the source-visible window DMA base used to
+            // encode the peer PTEs. When static BAR1 IS enabled (normal cards),
+            // leave dynBar1DmaBase == 0 so the encode uses the static identity
+            // region (unchanged behavior).
+            //
+            if (isBar1P2PSupported &&
+                !kbusIsStaticBar1Enabled(pAdjustedMemDesc->pGpu,
+                                         GPU_GET_KERNEL_BUS(pAdjustedMemDesc->pGpu)))
+            {
+                status = _nvGpuOpsDynBar1GetOrCreate(vaSpace->device->rmSubDevice,
+                                                     pMappingGpu,
+                                                     pAdjustedMemDesc->pGpu,
+                                                     pAdjustedMemDesc,
+                                                     hMemory,
+                                                     &dynBar1DmaBase);
+                if (status != NV_OK)
+                    goto freeGpaMemdesc;
+            }
         }
 
         //
@@ -4823,14 +5157,16 @@ NV_STATUS nvGpuOpsGetExternalAllocPtesOrPhysAddrs(struct gpuAddressSpace *vaSpac
                                                 isBar1P2PSupported,
                                                 peerId,
                                                 pGpuExternalMappingInfo,
-                                                bar1BusAddr);
+                                                bar1BusAddr,
+                                                dynBar1DmaBase);
     }
 
     if (pGpuExternalPhysAddrInfo != NULL)
     {
         status = nvGpuOpsBuildExternalAllocPhysAddrs(pVAS, vaSpace->device->session, pMappingGpu, pAdjustedMemDesc,
                                                      pMemory, offset, size, isIndirectPeerSupported, isPeerSupported,
-                                                     isBar1P2PSupported, peerId, pGpuExternalPhysAddrInfo, bar1BusAddr);
+                                                     isBar1P2PSupported, peerId, pGpuExternalPhysAddrInfo, bar1BusAddr,
+                                                     dynBar1DmaBase);
     }
 
 freeGpaMemdesc:
@@ -9305,6 +9641,9 @@ NV_STATUS nvGpuOpsFreeDupedHandle(struct gpuDevice *device,
         memdescUnmapIommu(pMemory->pMemDesc, pMappingGpu->busInfo.iovaspaceId);
     }
 
+    // METHOD3: tear down the per-allocation dynamic BAR1 P2P mapping, if any.
+    _nvGpuOpsDynBar1Destroy(device->rmSubDevice, hPhysHandle);
+
     _disablePeerAccess(device, memdescGetAddressSpace(pMemory->pMemDesc));
 
 out:
@@ -10979,7 +11318,7 @@ NV_STATUS nvGpuOpsGetChannelResourcePtes(struct gpuAddressSpace *vaSpace,
 
     status = nvGpuOpsBuildExternalAllocPtes(pVAS, vaSpace->device->session, pMappingGpu, pMemDesc, NULL,
                                             offset, size, NV_FALSE, NV_FALSE,
-                                            NV_FALSE, 0, pGpuExternalMappingInfo, 0);
+                                            NV_FALSE, 0, pGpuExternalMappingInfo, 0, 0);
 
     _nvGpuOpsLocksRelease(&acquiredLocks);
     threadStateFree(&threadState, THREAD_STATE_FLAGS_NONE);
