@@ -111,6 +111,55 @@ UVM 的 `bar1_p2p_dma_base_address/size` **不在** GMMU-PTE 访问路径上（�
   动态模式不支持 → 该路径地址错误（debug 构建会触发 `UVM_ASSERT(dma_size!=0)`）。NCCL 显式 buffer
   不受影响；但混用 managed memory P2P 的负载需注意。
 
+## v1 review 修复（codex 静态 review）
+
+核对后**前两点确属真问题**，已修：
+
+1. **不能假设 BAR1 VA 连续（数据损坏级）—— 已修**。`kbusMapFbAperture_GM107` 在带
+   `ALLOW_DISCONTIG` 时**先试单段、拿不到连续 VA 就回退多段**（`kern_bus_gm107.c:3170-3187`），此时
+   `numRanges>1`，而我只用 `pRanges[0]` + 线性编码 → 损坏。修法：**去掉 `ALLOW_DISCONTIG`**（无此 flag
+   时强制单段连续 VA，FB 分散仍由内部处理，拿不到就失败），并**硬校验 `numRanges == 1`**，否则
+   `LEVEL_ERROR` 打印 + 返回错误。
+2. **window 必须覆盖 builder 的 allocSize —— 已修**。builder 校验 `offset+size <=
+   RM_ALIGN_UP(ActualSize, pageSize)`（`nv_gpu_ops.c:4227/4232`），而创建时原用 `memdescGetSize()`
+   （请求大小，可能更小）→ 尾部越界。修法：orchestrator 用 `nvGpuOpsMemGetPageSize`（顺带把未设的
+   memdesc page size 设上）算出 `mapSize = RM_ALIGN_UP(ActualSize, pageSize)`，传入 create，map 范围与
+   window memdesc 都用 `mapSize`。
+3. **BAR1 预算最小保护 —— 已加**。`subDeviceDesc.dynBar1MappedBytes` 计数；create 前检查
+   `mapped + mapSize + 64MB保留 > 远端BAR1` 则 `LEVEL_ERROR` + `NV_ERR_INSUFFICIENT_RESOURCES`；
+   destroy 递减。（按源 subdevice 计，对远端 BAR1 偏保守；够做 v1 安全网。）测试建议固定
+   `NCCL_LOCAL_REGISTER=0 NCCL_GRAPH_REGISTER=0`。
+
+**日志/trace 点位（已加）**：create 成功 `LEVEL_INFO`（src/remote GPU、hMem、size、bar1Off、dmaBase、
+累计）；destroy `LEVEL_INFO`；`numRanges!=1` 与预算超限 `LEVEL_ERROR`（release 下可见，便于上机定位）。
+
+**仍待实测（点 4、5）**：
+- 点 4 生命周期：确认 `ncclCommDestroy` / 进程异常退出后 `_nvGpuOpsDynBar1Destroy` 必经
+  （`nvGpuOpsFreeDupedHandle` 逐 dup 销毁 + subdevice 拆除 `_DestroyAll` 兜底），BAR1 VA / IOMMU
+  refcount 不泄漏。
+- 点 5 同进程多卡：限定**一进程一 GPU rank** 或确认 `NCCL_CUMEM_ENABLE=1` 下只映射 NCCL transport
+  buffer（旧式 `cudaDeviceEnablePeerAccess` 同进程会开放整设备）。
+
+## v1 review round 2（codex 第二轮）
+
+- **【已修，且推翻上一轮的修法】window size**：第一轮把 `mapSize` 改成
+  `RM_ALIGN_UP(ActualSize, pageSize)` 是**错的**——`kbusMapFbAperture → memdescCreateSubMem` 断言
+  `Offset + Size <= pMemDesc->Size`（`mem_desc.c:2604`，`Size==memdescGetSize`，非 ActualSize），
+  `ActualSize > Size` 时直接失败。而 UVM 被告知的 alloc 大小就是 `memdescGetSize`
+  （`nvGpuOpsFillGpuMemoryInfo`，`nv_gpu_ops.c:8414`），其映射请求不会超过它。**改回
+  `mapSize = memdescGetSize()`**（既可映射、又覆盖 UVM 全部请求），并在两个 builder 的 dynamic 分支
+  加防御性校验 `offset+size <= memdescGetSize` → 超出则 `NV_ERR_INVALID_LIMIT`（理论上不触发）。
+- **【已修】subdevice 创建失败漏销毁 mutex**：`cleanup_subdevice_desc` 现先
+  `portSyncMutexDestroy(pDynBar1Mutex)` 再 free（`nv_gpu_ops.c` 子设备创建失败路径）。
+- **【按 v1 保留 + 文档化】预算 guard 是 per-source 而非 per-remote 全局**：`dynBar1MappedBytes` 挂
+  source subdevice，8 卡时同一 remote BAR1 被多个 source 各自消耗、看不到总量。它是**粗粒度安全网**
+  （清晰报错），真正耗尽仍由 `kbusMapFbAperture` 失败兜底。做全局准入需在 remote 侧（如 remote
+  KernelBus）加共享计数（要动 generated 结构），留作后续硬化。测试固定
+  `NCCL_LOCAL_REGISTER=0 NCCL_GRAPH_REGISTER=0`。
+- **【按 v1 推迟 + 文档化】`dynBar1DmaBase != 0` 当模式标志**：IOVA 0 理论上合法。但即便窗口 base 真为
+  0，编码会落到 static 分支 → `kbusGetBar1P2PDmaInfo`（static 未启用时）失败返回错误，是**干净失败而非
+  损坏**，故 v1 可接受。若要消除歧义，加独立 `NvBool bDynBar1Mapped` 经 builder 传递即可。
+
 ## 当前状态（代码初步完成）
 
 - `nv_gpu_ops.c`：自适应编码 + 动态窗口生命周期 + GetP2PCaps 修复 —— **已写完**。
