@@ -3777,8 +3777,21 @@ _nvGpuOpsDynBar1Create(subDeviceDesc *rmSubDevice,
     windowPhys = gpumgrGetGpuPhysFbAddr(pRemoteGpu) + memArea.pRanges[0].start;
 
     // 2. Describe the remote BAR1 window as sysmem; IOMMU-map into the source GPU.
+    //
+    // METHOD3: the window memdesc MUST be owned by pRemoteGpu (the FB/BAR1
+    // owner), NOT pMappingGpu. osIovaMap() resolves the "peer" device from
+    // memdescGetRootMemDesc(pMemDesc)->pGpu and tests the described physical
+    // address with IS_FB_OFFSET(peer, ...). windowPhys lives in pRemoteGpu's
+    // BAR1 (FB) aperture, so peer must be pRemoteGpu for IS_FB_OFFSET to hit
+    // and route through nv_dma_map_peer() (the cross-device BAR DMA path the
+    // static BAR1 mapping uses: kbusEnableStaticBar1Mapping_TU102 creates
+    // staticBar1.pDmaMemDesc with pGpu == FB owner, then maps it into the
+    // source GPU's iovaspace). With pMappingGpu as owner, IS_FB_OFFSET checks
+    // the LOCAL GPU's BAR and fails, so osIovaMap falls to the pPriv == NULL
+    // branch and returns NV_ERR_INVALID_STATE.
+    //
     NV_CHECK_OK_OR_GOTO(status, LEVEL_ERROR,
-        memdescCreate(&pWin, pMappingGpu, mapSize, 0, NV_MEMORY_CONTIGUOUS,
+        memdescCreate(&pWin, pRemoteGpu, mapSize, 0, NV_MEMORY_CONTIGUOUS,
                       ADDR_SYSMEM, NV_MEMORY_UNCACHED, MEMDESC_FLAGS_NONE),
         fail);
     memdescDescribe(pWin, ADDR_SYSMEM, windowPhys, mapSize);

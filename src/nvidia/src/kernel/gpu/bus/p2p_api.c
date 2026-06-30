@@ -609,8 +609,20 @@ p2papiConstruct_IMPL
                                                            DRF_DEF(_P2PAPI, _ATTRIBUTES, _REMOTE_EGM, _YES)));
         }
 
+        //
+        // METHOD3: The static BAR1-P2P DMA info (whole-FB identity map base/size)
+        // only exists when static BAR1 is enabled on the peer. On the dynamic
+        // BAR1-P2P path (BAR1 < FB, no static region), staticBar1.pDmaMemDesc is
+        // NULL and kbusGetBar1P2PDmaInfo would return NV_ERR_NOT_SUPPORTED,
+        // aborting multi-GPU CUDA init. Leave the default sentinel values
+        // (dma_address = NV_U64_MAX, dma_size = 0) set above, which the UMD
+        // already treats as "no BAR1 DMA info"; per-allocation peer mappings are
+        // built dynamically instead.
+        //
         if ((p2pConnectionType == P2P_CONNECTIVITY_PCIE_BAR1) &&
-            (pCallContext->secInfo.privLevel >= RS_PRIV_LEVEL_KERNEL))
+            (pCallContext->secInfo.privLevel >= RS_PRIV_LEVEL_KERNEL) &&
+            kbusIsStaticBar1Enabled(pLocalGpu, pLocalKernelBus) &&
+            kbusIsStaticBar1Enabled(pRemoteGpu, pRemoteKernelBus))
         {
             NV_CHECK_OK_OR_RETURN(LEVEL_ERROR,
                                   kbusGetBar1P2PDmaInfo_HAL(pLocalGpu, pRemoteGpu,
