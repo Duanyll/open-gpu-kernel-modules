@@ -90,6 +90,19 @@ BAR1 P2P. (Env var only — no NCCL recompile / userspace code change.)
 dmesg clean across all runs (no Xid / no `INSUFFICIENT_RESOURCES` from the BAR1 budget guard);
 GPU memory fully released after tests → dynamic mapping lifecycle has no leak.
 
+### PyTorch DDP training (`ddp_train.py`, synthetic 403M-param MLP, 1611 MB grad/step)
+
+Real DDP training (gradient all-reduce each step), `torchrun --nproc_per_node=N`
+(torch 2.8 bundles NCCL 2.27.3):
+
+| config | ms/step | steps/s | all-reduce busbw | final loss |
+|---|---|---|---|---|
+| 4-card P2P (`NCCL_P2P_LEVEL=SYS`) | 134.7 | 7.4 | ~17.9 GB/s | 1.0042 |
+| 8-card P2P (`NCCL_P2P_LEVEL=SYS`) | 153.4 | 6.5 | ~18.4 GB/s | 1.0005 |
+| 8-card default (SHM, no P2P) | 259.5 | 3.9 | ~10.9 GB/s | 1.0007 |
+
+→ P2P gives **~1.7× faster step time** for 8-card DDP, correct convergence, no hangs/errors.
+
 ## Verdict
 
 **Method 3 works.** On the 48GB/32GB-BAR1 RTX 4090, driver-only dynamic per-allocation BAR1
