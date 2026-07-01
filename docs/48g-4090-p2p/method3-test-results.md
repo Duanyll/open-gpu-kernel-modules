@@ -1,6 +1,6 @@
-# Method 3 dynamic BAR1 P2P — test results on villa-super-server-32
+# Method 3 dynamic BAR1 P2P — test results (Platform A: 2-socket, 8× RTX 4090 48G)
 
-Test machine: `villa-super-server-32` (192.168.5.132), BMC 192.168.5.232 (user `admin`).
+Test machine: Platform A — a 2-socket headless server node (dual Intel Xeon Silver 4416+).
 - 8× RTX 4090 **48G** (leaked-VBIOS, 32GB BAR1), 49140 MiB each.
 - Ubuntu 22.04.5, kernel 6.8.0-124-generic.
 - Driver flavor: **nvidia-595-open** (open kernel modules), version **595.71.05** — exact match to branch `595.71.05-p2p-48g`.
