@@ -1491,6 +1491,30 @@ kbusIsPcieBar1P2PMappingSupported_GH100
         return NV_FALSE;
     }
 
+    //
+    // METHOD3: reject mixed static/dynamic BAR1 pairs. When one GPU has static
+    // BAR1 enabled (BAR1 >= FB, whole-FB identity region) and the other does not
+    // (BAR1 < FB, per-allocation dynamic windows), the two encode/IOMMU schemes
+    // are incompatible: the static->dynamic direction has no whole-FB IOMMU
+    // mapping (that per-pair mapping is only created when both ends are static,
+    // see kbusCreateP2PMappingForBar1P2P_GH100), so the static identity encode
+    // would target an unmapped BAR1 -> silent corruption. Do not advertise BAR1
+    // P2P for such a pair; the caller falls back gracefully (e.g. SHM). Only a
+    // heterogeneous node (normal card + 48GB dynamic card) can hit this.
+    //
+    {
+        NvBool bStatic0 = kbusIsStaticBar1Enabled(pGpu0, pKernelBus0);
+        NvBool bStatic1 = kbusIsStaticBar1Enabled(pGpu1, pKernelBus1);
+        if (bStatic0 != bStatic1)
+        {
+            NV_PRINTF(LEVEL_WARNING,
+                      "METHOD3: mixed static/dynamic BAR1 (GPU%u static=%u, GPU%u static=%u); "
+                      "BAR1 P2P not advertised\n",
+                      gpuInst0, (NvU32)bStatic0, gpuInst1, (NvU32)bStatic1);
+            return NV_FALSE;
+        }
+    }
+
     return NV_TRUE;
 }
 
