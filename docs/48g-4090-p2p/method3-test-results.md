@@ -1,6 +1,6 @@
-# Method 3 dynamic BAR1 P2P — test results on villa-super-server-32
+# Method 3 dynamic BAR1 P2P — test results (Platform A: 2-socket, 8× RTX 4090 48G)
 
-Test machine: `villa-super-server-32` (192.168.5.132), BMC 192.168.5.232 (user `admin`).
+Test machine: Platform A — a 2-socket headless server node (dual Intel Xeon Silver 4416+).
 - 8× RTX 4090 **48G** (leaked-VBIOS, 32GB BAR1), 49140 MiB each.
 - Ubuntu 22.04.5, kernel 6.8.0-124-generic.
 - Driver flavor: **nvidia-595-open** (open kernel modules), version **595.71.05** — exact match to branch `595.71.05-p2p-48g`.
@@ -116,4 +116,26 @@ all-reduce busbw), for all 8 GPUs incl. cross-NUMA, **while keeping all 48GB VRA
 
 Operational note: NCCL needs `NCCL_P2P_LEVEL=SYS` to actually use P2P on this multi-host-bridge
 box (otherwise it silently stays on SHM).
+
+---
+
+# Second platform — Platform B (AMD EPYC 7302 / Rome, 4× RTX 4090 48G)
+
+Same driver (595.71.05 nvidia-595-open, kernel 6.8.0-124), 4 GPUs single socket / 1 NUMA node,
+all pairs at NODE/PHB distance. IOMMU on (AMD-Vi), **ACS redirect OFF** (`ReqRedir-`/`CmpltRedir-`)
+— no GRUB change needed. Desktop (gdm/Xorg) was disabled (`systemctl set-default multi-user.target`,
+reversible) so X doesn't hold the GPUs. Driver built with the correctness hardening
+(explicit `bDynBar1Mapped` flag; BAR1-exhaustion/OOM logging; mixed static/dynamic pair rejection).
+
+Rome without P2P is *especially* bad (sysmem staging bottlenecked by the IO-die), so P2P helps far
+more here than on the 2-socket Platform A:
+
+| test | stock / SHM (no P2P) | patched + `NCCL_P2P_LEVEL=SYS` | speedup | correctness |
+|---|---|---|---|---|
+| `p2pcheck` peer copy (all 12 pairs) | n/a (CNS) | **26.3 GB/s** | — | ✅ all verified |
+| NCCL all_reduce 4-card busbw | **4.1 GB/s** | **25.15 GB/s** | **6.1×** | 0 wrong |
+| DDP 4-card (403M params, ms/step) | **1203.7** (2.0 GB/s AR) | **109.5** (22.1 GB/s AR) | **11×** | loss 0.9996 |
+
+dmesg clean, no mapping leak. Confirms Method 3 + hardening works on a second, AMD-Rome platform,
+where the P2P benefit is dramatic (6× collective, 11× DDP step time).
 

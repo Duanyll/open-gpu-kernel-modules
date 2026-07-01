@@ -168,3 +168,41 @@ UVM 的 `bar1_p2p_dma_base_address/size` **不在** GMMU-PTE 访问路径上（�
 - 仍需在目标机核实：`memArea.pRanges` 由 `kbusUnmapFbAperture` 释放（无泄漏）；`kbusMapFbAperture`
   在 orchestrator 锁上下文可跑；NCCL 是否对 registered buffer 超 BAR1 预算优雅回退（默认 FIFO 集
   ~180MB 不触发）。预算准入（仿 `_isSpaceAvailableForBar1P2PMapping`）作为后续硬化项。
+
+## v1 hardening round 3（codex 第二轮 review 的取舍）
+
+针对 `method3-review-followups.md` 的 5 条建议，本轮只改动确实影响正确性、且不会扰动 cudart/UVM
+探测与回退行为的两条，其余明确保留并记录理由：
+
+- **#1 独立 dynamic 标志 —— 已修**。builder（`nvGpuOpsBuildExternalAllocPtes` /
+  `...PhysAddrs`）新增显式形参 `NvBool bDynBar1Mapped`，编码分支改用它判定，不再用
+  `dynBar1DmaBase != 0`。orchestrator 在 `_nvGpuOpsDynBar1GetOrCreate` 成功后置
+  `dynBar1Mapped = NV_TRUE` 并下传。这样动态窗口的 IOVA base 即便合法地为 0 也不会被误判为
+  static；模式判定与地址值彻底解耦，避免与未知外来状态冲突。
+
+- **#5 异构 static/dynamic 卡混插 —— 已修（能力门禁，优雅回退）**。
+  `kbusIsPcieBar1P2PMappingSupported_GH100` 在两卡 `kbusIsStaticBar1Enabled` 不一致时返回
+  `NV_FALSE` 并打 `LEVEL_WARNING`。该函数是 `NV0000_..._PCI_BAR1_SUPPORTED` 能力位的唯一门禁
+  （`p2p_caps.c` 计算 caps、`nvGpuOpsGetExternalAllocP2pInfo` 读同一位），一处返回 false 即让
+  caps 查询与编码路径同时不选 BAR1 P2P，调用方（NCCL/UVM）优雅回退（如 SHM），不做硬失败。
+  混插方向的“static identity 编码 + 无 whole-FB IOMMU”静默损坏隐患由此消除。**仅异构节点会触发**，
+  同构 48GB 节点不会走到。
+
+- **#2 `size == 0` 通用语义 —— 保留不改（文档化）**。dynamic 分支的越界校验仍用原始 `size`；
+  NCCL/UVM external PTE 路径始终传非零 `size`，不会触发尾部越界。改动 `size==0` 的处理有扰动
+  cudart/UVM 探测与回退行为的风险，故 v1 不动，仅保留既有防御性校验。
+
+- **#4 managed / `uvm_peer_copy=virt` —— 保留不改（文档化）**。dynamic 模式仍向 UVM 上报
+  `bar1DmaAddress/Size = 0/0` 且 `p2pLink = PCIE_BAR1`。默认 `peer_copy_mode = PHYSICAL` 下这些值
+  不在 NCCL 显式 buffer 的访问路径上（见上文“UVM 兼容性结论”）。硬 gate 会改变 caps 上报、可能
+  影响 cudart 探测/回退，故 v1 不加，维持 v1 支持矩阵：不支持 `cudaMallocManaged` 跨卡迁移，保持
+  默认 PHYSICAL（勿设 virt）。
+
+- **#3 多段 BAR1 VA / 窗口池化 —— 推迟**。仍要求 `numRanges == 1`，拿不到连续 BAR1 VA 就干净失败，
+  是有意的安全模式。主要牵扯 BAR1 窗口利用率，不紧急。
+
+**可观测性（保持简单）**：不加 counter / procfs / sysfs，只补齐失败路径日志。`_nvGpuOpsDynBar1Create`
+里唯一之前静默 `return status` 的分支是 `kbusMapFbAperture_HAL` 失败（最可能的真实失败：BAR1 VA
+耗尽/碎片，即 #3 的症状），现加 `LEVEL_ERROR`；`pMap` 分配 `NV_ERR_NO_MEMORY` 分支也补一行。其余
+失败路径（预算、`numRanges!=1`、memdesc/IOMMU）原本已有 `LEVEL_ERROR`。map/unmap 的 `LEVEL_INFO`
+行不变。
