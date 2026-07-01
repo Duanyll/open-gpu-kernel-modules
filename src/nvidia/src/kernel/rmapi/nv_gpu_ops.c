@@ -3754,7 +3754,20 @@ _nvGpuOpsDynBar1Create(subDeviceDesc *rmSubDevice,
         rmDeviceGpuLocksRelease(pRemoteGpu, GPUS_LOCK_FLAGS_NONE, NULL);
 
     if (status != NV_OK)
+    {
+        //
+        // Most likely a contiguous BAR1 VA range of mapSize could not be found
+        // (BAR1 VA exhausted or fragmented, cf. the deferred multi-range work).
+        // Log it: otherwise the failure is invisible and the caller silently
+        // falls back off BAR1 P2P.
+        //
+        NV_PRINTF(LEVEL_ERROR,
+                  "METHOD3: dynamic BAR1 P2P map GPU%u->GPU%u hMem 0x%x size 0x%llx "
+                  "failed (0x%x); BAR1 VA exhausted/fragmented?\n",
+                  gpuGetInstance(pMappingGpu), gpuGetInstance(pRemoteGpu),
+                  hDupMemory, mapSize, status);
         return status;
+    }
 
     bMapped = NV_TRUE;
 
@@ -3805,6 +3818,10 @@ _nvGpuOpsDynBar1Create(subDeviceDesc *rmSubDevice,
     pMap = portMemAllocNonPaged(sizeof(*pMap));
     if (pMap == NULL)
     {
+        NV_PRINTF(LEVEL_ERROR,
+                  "METHOD3: dynamic BAR1 P2P GPU%u->GPU%u hMem 0x%x: out of memory "
+                  "tracking window\n",
+                  gpuGetInstance(pMappingGpu), gpuGetInstance(pRemoteGpu), hDupMemory);
         status = NV_ERR_NO_MEMORY;
         memdescUnmapIommu(pWin, pMappingGpu->busInfo.iovaspaceId);
         goto fail;
@@ -4240,7 +4257,8 @@ nvGpuOpsBuildExternalAllocPtes
     NvU32       peerId,
     gpuExternalMappingInfo *pGpuExternalMappingInfo,
     RmPhysAddr bar1BusAddr,
-    RmPhysAddr dynBar1DmaBase   // METHOD3: per-allocation dynamic BAR1 window base
+    RmPhysAddr dynBar1DmaBase,  // METHOD3: per-allocation dynamic BAR1 window base
+    NvBool     bDynBar1Mapped   // METHOD3: TRUE when the dynamic window path is used
 )
 {
     NV_STATUS               status              = NV_OK;
@@ -4552,7 +4570,7 @@ nvGpuOpsBuildExternalAllocPtes
     {
         NvU64 i;
 
-        if (dynBar1DmaBase != 0)
+        if (bDynBar1Mapped)
         {
             //
             // METHOD3 (dynamic): the remote BAR1 is smaller than its FB (e.g. 48GB
@@ -4750,7 +4768,8 @@ nvGpuOpsBuildExternalAllocPhysAddrs
     NvU32       peerId,
     UvmGpuExternalPhysAddrInfo *pGpuExternalPhysAddrInfo,
     RmPhysAddr bar1BusAddr,
-    RmPhysAddr dynBar1DmaBase   // METHOD3: per-allocation dynamic BAR1 window base
+    RmPhysAddr dynBar1DmaBase,  // METHOD3: per-allocation dynamic BAR1 window base
+    NvBool     bDynBar1Mapped   // METHOD3: TRUE when the dynamic window path is used
 )
 {
     NV_STATUS               status              = NV_OK;
@@ -4917,7 +4936,7 @@ nvGpuOpsBuildExternalAllocPhysAddrs
     {
         NvU64 i;
 
-        if (dynBar1DmaBase != 0)
+        if (bDynBar1Mapped)
         {
             // METHOD3 (dynamic): per-allocation BAR1 window; see PTE path above.
             if ((offset + size) > memdescGetSize(pMemDesc))
@@ -4988,6 +5007,7 @@ NV_STATUS nvGpuOpsGetExternalAllocPtesOrPhysAddrs(struct gpuAddressSpace *vaSpac
     OBJGPU *pMappingGpu = NULL;
     RmPhysAddr bar1BusAddr = 0;
     RmPhysAddr dynBar1DmaBase = 0;   // METHOD3: per-allocation dynamic BAR1 window base
+    NvBool dynBar1Mapped = NV_FALSE; // METHOD3: TRUE once the dynamic window is created
     NvU32 peerId = 0;
     NvBool isSliSupported = NV_FALSE;
     NvBool isPeerSupported = NV_FALSE;
@@ -5151,6 +5171,10 @@ NV_STATUS nvGpuOpsGetExternalAllocPtesOrPhysAddrs(struct gpuAddressSpace *vaSpac
                                                      &dynBar1DmaBase);
                 if (status != NV_OK)
                     goto freeGpaMemdesc;
+
+                // METHOD3: explicit mode flag; do not infer from dynBar1DmaBase
+                // (a dynamic window's IOVA base can legitimately be 0).
+                dynBar1Mapped = NV_TRUE;
             }
         }
 
@@ -5242,7 +5266,8 @@ NV_STATUS nvGpuOpsGetExternalAllocPtesOrPhysAddrs(struct gpuAddressSpace *vaSpac
                                                 peerId,
                                                 pGpuExternalMappingInfo,
                                                 bar1BusAddr,
-                                                dynBar1DmaBase);
+                                                dynBar1DmaBase,
+                                                dynBar1Mapped);
     }
 
     if (pGpuExternalPhysAddrInfo != NULL)
@@ -5250,7 +5275,7 @@ NV_STATUS nvGpuOpsGetExternalAllocPtesOrPhysAddrs(struct gpuAddressSpace *vaSpac
         status = nvGpuOpsBuildExternalAllocPhysAddrs(pVAS, vaSpace->device->session, pMappingGpu, pAdjustedMemDesc,
                                                      pMemory, offset, size, isIndirectPeerSupported, isPeerSupported,
                                                      isBar1P2PSupported, peerId, pGpuExternalPhysAddrInfo, bar1BusAddr,
-                                                     dynBar1DmaBase);
+                                                     dynBar1DmaBase, dynBar1Mapped);
     }
 
 freeGpaMemdesc:
@@ -11398,7 +11423,7 @@ NV_STATUS nvGpuOpsGetChannelResourcePtes(struct gpuAddressSpace *vaSpace,
 
     status = nvGpuOpsBuildExternalAllocPtes(pVAS, vaSpace->device->session, pMappingGpu, pMemDesc, NULL,
                                             offset, size, NV_FALSE, NV_FALSE,
-                                            NV_FALSE, 0, pGpuExternalMappingInfo, 0, 0);
+                                            NV_FALSE, 0, pGpuExternalMappingInfo, 0, 0, NV_FALSE);
 
     _nvGpuOpsLocksRelease(&acquiredLocks);
     threadStateFree(&threadState, THREAD_STATE_FLAGS_NONE);
