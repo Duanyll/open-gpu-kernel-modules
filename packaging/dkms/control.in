@@ -1,0 +1,15 @@
+Package: @PKG@
+Version: @VER@-1
+Section: kernel
+Priority: optional
+Architecture: all
+Maintainer: duanyll <duanyll@outlook.com>
+Depends: dkms (>= 3.1.8), firmware-nvidia-gsp (>= @VER@), g++
+Provides: nvidia-kernel-@VER@, nvidia-kernel-open-dkms (= @VER@-1)
+Conflicts: nvidia-kernel-open-dkms, nvidia-kernel-dkms
+Replaces: nvidia-kernel-open-dkms
+Description: NVIDIA open GPU kernel modules with PCIe P2P + 48G-4090 support (DKMS)
+ Drop-in replacement for the CUDA-repo nvidia-kernel-open-dkms, built from a community
+ fork of open-gpu-kernel-modules: peer-to-peer over PCIe plus a dynamic-BAR1 path for
+ 48GB-modded RTX 4090. The patched source is vendored, so DKMS builds it fully offline.
+ Unofficial; not affiliated with NVIDIA.

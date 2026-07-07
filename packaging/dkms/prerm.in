@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+NAME=@DKMS_NAME@
+VER=@VER@
+case "$1" in
+  remove|upgrade|deconfigure)
+    if [ "$(dkms status -m "$NAME" -v "$VER")" ]; then
+      dkms remove -m "$NAME" -v "$VER" --all || true
+    fi
+    ;;
+esac
+exit 0
