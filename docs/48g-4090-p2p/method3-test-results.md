@@ -1,5 +1,12 @@
 # Method 3 dynamic BAR1 P2P — test results (Platform A: 2-socket, 8× RTX 4090 48G)
 
+> **Important follow-up (read first):** "all 48 GB usable with P2P" holds only via the **cuMem**
+> peer-access path (modern NCCL / PyTorch ≥2.8, `NCCL_CUMEM_ENABLE=1`). Apps using the legacy
+> `cudaDeviceEnablePeerAccess` API (e.g. `simpleP2P`) open the whole device and stay capped at
+> ~32 GB. This was measured on hardware in July 2026 — see
+> [`method3-usable-vram-cumem-vs-legacy.md`](method3-usable-vram-cumem-vs-legacy.md) and the raw
+> logs in [`hw-logs-2026-07/`](hw-logs-2026-07/).
+
 Test machine: Platform A — a 2-socket headless server node (dual Intel Xeon Silver 4416+).
 - 8× RTX 4090 **48G** (leaked-VBIOS, 32GB BAR1), 49140 MiB each.
 - Ubuntu 22.04.5, kernel 6.8.0-124-generic.

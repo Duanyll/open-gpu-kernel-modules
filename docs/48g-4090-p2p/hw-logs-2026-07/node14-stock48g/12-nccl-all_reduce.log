@@ -1,0 +1,97 @@
+### NCCL_P2P_LEVEL=SYS (real P2P)
+# nccl-tests version 2.17.6 nccl-headers=22501 nccl-library=22703
+# Collective test starting: all_reduce_perf
+# nThread 1 nGpus 4 minBytes 8 maxBytes 1073741824 step: 2(factor) warmup iters: 1 iters: 20 agg iters: 1 validation: 1 graph: 0
+#
+# Using devices
+#  Rank  0 Group  0 Pid     40 on 81e86d6fb9c9 device  0 [0000:01:00] NVIDIA GeForce RTX 4090
+#  Rank  1 Group  0 Pid     40 on 81e86d6fb9c9 device  1 [0000:81:00] NVIDIA GeForce RTX 4090
+#  Rank  2 Group  0 Pid     40 on 81e86d6fb9c9 device  2 [0000:c1:00] NVIDIA GeForce RTX 4090
+#  Rank  3 Group  0 Pid     40 on 81e86d6fb9c9 device  3 [0000:c2:00] NVIDIA GeForce RTX 4090
+NCCL version 2.27.3+cuda12.9
+#
+#                                                              out-of-place                       in-place          
+#       size         count      type   redop    root     time   algbw   busbw  #wrong     time   algbw   busbw  #wrong 
+#        (B)    (elements)                               (us)  (GB/s)  (GB/s)             (us)  (GB/s)  (GB/s)         
+           8             2     float     sum      -1    23.44    0.00    0.00       0    23.44    0.00    0.00       0
+          16             4     float     sum      -1    23.45    0.00    0.00       0    24.11    0.00    0.00       0
+          32             8     float     sum      -1    24.28    0.00    0.00       0    23.92    0.00    0.00       0
+          64            16     float     sum      -1    24.84    0.00    0.00       0    24.89    0.00    0.00       0
+         128            32     float     sum      -1    24.34    0.01    0.01       0    24.77    0.01    0.01       0
+         256            64     float     sum      -1    24.44    0.01    0.02       0    24.62    0.01    0.02       0
+         512           128     float     sum      -1    24.56    0.02    0.03       0    24.75    0.02    0.03       0
+        1024           256     float     sum      -1    24.40    0.04    0.06       0    24.48    0.04    0.06       0
+        2048           512     float     sum      -1    24.46    0.08    0.13       0    24.81    0.08    0.12       0
+        4096          1024     float     sum      -1    24.15    0.17    0.25       0    24.79    0.17    0.25       0
+        8192          2048     float     sum      -1    24.44    0.34    0.50       0    24.47    0.33    0.50       0
+       16384          4096     float     sum      -1    24.93    0.66    0.99       0    25.02    0.65    0.98       0
+       32768          8192     float     sum      -1    29.96    1.09    1.64       0    30.28    1.08    1.62       0
+       65536         16384     float     sum      -1    51.63    1.27    1.90       0    51.16    1.28    1.92       0
+      131072         32768     float     sum      -1    88.15    1.49    2.23       0    89.90    1.46    2.19       0
+      262144         65536     float     sum      -1   163.31    1.61    2.41       0   162.86    1.61    2.41       0
+      524288        131072     float     sum      -1   293.12    1.79    2.68       0   291.44    1.80    2.70       0
+     1048576        262144     float     sum      -1   427.31    2.45    3.68       0   439.60    2.39    3.58       0
+     2097152        524288     float     sum      -1  1052.31    1.99    2.99       0  1052.74    1.99    2.99       0
+     4194304       1048576     float     sum      -1  1952.69    2.15    3.22       0  1754.19    2.39    3.59       0
+     8388608       2097152     float     sum      -1  3470.49    2.42    3.63       0  3688.66    2.27    3.41       0
+    16777216       4194304     float     sum      -1  7226.02    2.32    3.48       0  7198.39    2.33    3.50       0
+    33554432       8388608     float     sum      -1  14240.4    2.36    3.53       0  14273.0    2.35    3.53       0
+    67108864      16777216     float     sum      -1  28339.1    2.37    3.55       0  28535.0    2.35    3.53       0
+   134217728      33554432     float     sum      -1  57583.4    2.33    3.50       0  57972.0    2.32    3.47       0
+   268435456      67108864     float     sum      -1   117872    2.28    3.42       0   117133    2.29    3.44       0
+   536870912     134217728     float     sum      -1   245364    2.19    3.28       0   245202    2.19    3.28       0
+  1073741824     268435456     float     sum      -1   567299    1.89    2.84       0   577295    1.86    2.79       0
+# Out of bounds values : 0 OK
+# Avg bus bandwidth    : 1.784 
+#
+# Collective test concluded: all_reduce_perf
+
+
+### default P2P_LEVEL (baseline / SHM fallback)
+# nccl-tests version 2.17.6 nccl-headers=22501 nccl-library=22703
+# Collective test starting: all_reduce_perf
+# nThread 1 nGpus 4 minBytes 8 maxBytes 1073741824 step: 2(factor) warmup iters: 1 iters: 20 agg iters: 1 validation: 1 graph: 0
+#
+# Using devices
+#  Rank  0 Group  0 Pid     68 on 81e86d6fb9c9 device  0 [0000:01:00] NVIDIA GeForce RTX 4090
+#  Rank  1 Group  0 Pid     68 on 81e86d6fb9c9 device  1 [0000:81:00] NVIDIA GeForce RTX 4090
+#  Rank  2 Group  0 Pid     68 on 81e86d6fb9c9 device  2 [0000:c1:00] NVIDIA GeForce RTX 4090
+#  Rank  3 Group  0 Pid     68 on 81e86d6fb9c9 device  3 [0000:c2:00] NVIDIA GeForce RTX 4090
+NCCL version 2.27.3+cuda12.9
+#
+#                                                              out-of-place                       in-place          
+#       size         count      type   redop    root     time   algbw   busbw  #wrong     time   algbw   busbw  #wrong 
+#        (B)    (elements)                               (us)  (GB/s)  (GB/s)             (us)  (GB/s)  (GB/s)         
+           8             2     float     sum      -1    24.31    0.00    0.00       0    23.42    0.00    0.00       0
+          16             4     float     sum      -1    23.65    0.00    0.00       0    23.92    0.00    0.00       0
+          32             8     float     sum      -1    24.32    0.00    0.00       0    24.09    0.00    0.00       0
+          64            16     float     sum      -1    24.67    0.00    0.00       0    24.64    0.00    0.00       0
+         128            32     float     sum      -1    24.88    0.01    0.01       0    24.66    0.01    0.01       0
+         256            64     float     sum      -1    25.10    0.01    0.02       0    24.30    0.01    0.02       0
+         512           128     float     sum      -1    24.84    0.02    0.03       0    24.74    0.02    0.03       0
+        1024           256     float     sum      -1    24.89    0.04    0.06       0    24.52    0.04    0.06       0
+        2048           512     float     sum      -1    25.97    0.08    0.12       0    24.51    0.08    0.13       0
+        4096          1024     float     sum      -1    24.72    0.17    0.25       0    24.53    0.17    0.25       0
+        8192          2048     float     sum      -1    25.37    0.32    0.48       0    24.41    0.34    0.50       0
+       16384          4096     float     sum      -1    25.29    0.65    0.97       0    25.44    0.64    0.97       0
+       32768          8192     float     sum      -1    29.56    1.11    1.66       0    29.40    1.11    1.67       0
+       65536         16384     float     sum      -1    51.02    1.28    1.93       0    51.60    1.27    1.91       0
+      131072         32768     float     sum      -1    88.06    1.49    2.23       0    90.50    1.45    2.17       0
+      262144         65536     float     sum      -1   164.43    1.59    2.39       0   166.34    1.58    2.36       0
+      524288        131072     float     sum      -1   290.19    1.81    2.71       0   290.87    1.80    2.70       0
+     1048576        262144     float     sum      -1   426.54    2.46    3.69       0   422.06    2.48    3.73       0
+     2097152        524288     float     sum      -1  1040.95    2.01    3.02       0  1043.35    2.01    3.02       0
+     4194304       1048576     float     sum      -1  1985.46    2.11    3.17       0  1732.30    2.42    3.63       0
+     8388608       2097152     float     sum      -1  3485.82    2.41    3.61       0  3700.33    2.27    3.40       0
+    16777216       4194304     float     sum      -1  7190.98    2.33    3.50       0  7196.11    2.33    3.50       0
+    33554432       8388608     float     sum      -1  14240.9    2.36    3.53       0  14231.8    2.36    3.54       0
+    67108864      16777216     float     sum      -1  28423.1    2.36    3.54       0  28677.2    2.34    3.51       0
+   134217728      33554432     float     sum      -1  56949.8    2.36    3.54       0  57047.4    2.35    3.53       0
+   268435456      67108864     float     sum      -1   114793    2.34    3.51       0   115613    2.32    3.48       0
+   536870912     134217728     float     sum      -1   242062    2.22    3.33       0   242136    2.22    3.33       0
+  1073741824     268435456     float     sum      -1   570574    1.88    2.82       0   579838    1.85    2.78       0
+# Out of bounds values : 0 OK
+# Avg bus bandwidth    : 1.7919 
+#
+# Collective test concluded: all_reduce_perf
+

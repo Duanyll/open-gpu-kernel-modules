@@ -1,0 +1,11 @@
+### hostname
+gpu-node-48g-modded
+
+### /proc/driver/nvidia/version
+NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  595.71.05  Release Build  (root@gpu-node-48g-modded)  2026年 07月 01日 星期三 12:52:15 CST
+GCC version:  gcc version 12.3.0 (Ubuntu 12.3.0-1ubuntu1~22.04.3) 
+
+### /proc/cmdline
+BOOT_IMAGE=/boot/vmlinuz-6.8.0-124-generic root=UUID=9011e8c3-6764-4779-80b9-cc06871010e9 ro quiet splash vt.handoff=7
+
+### ACSCtl SrcValid+ (P2P-blocking redirect) count: 0

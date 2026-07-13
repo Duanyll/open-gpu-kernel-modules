@@ -1,0 +1,4 @@
+peer access enabled: src->dst=0 dst->src=0 canAccessPeer=1
+dst GPU0 free=46.99 total=47.37 GiB
+allocated 31.75 GiB on dst GPU0 WITH peer access enabled (127 x 256 MiB chunks)
+P2P write+verify to the highest allocated chunk (physical floor ~31.5 GiB): mismatches=0 -> PASS

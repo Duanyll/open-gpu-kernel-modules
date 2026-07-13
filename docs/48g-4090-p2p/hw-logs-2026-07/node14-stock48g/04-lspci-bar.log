@@ -1,0 +1,13 @@
+### GPU 01:00.0 lspci BAR/ReBAR/Link (ChihayaK/152334H check)
+	Region 0: Memory at f6000000 (32-bit, non-prefetchable) [size=16M]
+	Region 1: Memory at 38060000000 (64-bit, prefetchable) [size=256M]
+	Region 3: Memory at 38070000000 (64-bit, prefetchable) [size=32M]
+	Region 5: I/O ports at 3000 [size=128]
+		LnkCap:	Port #0, Speed 16GT/s, Width x16, ASPM L1, Exit Latency L1 <4us
+		LnkSta:	Speed 2.5GT/s (downgraded), Width x16 (ok)
+		LnkCap2: Supported Link Speeds: 2.5-16GT/s, Crosslink- Retimer+ 2Retimers+ DRS-
+		LnkSta2: Current De-emphasis Level: -3.5dB, EqualizationComplete+ EqualizationPhase1+
+	Capabilities: [bb0 v1] Physical Resizable BAR
+		BAR 0: current size: 16MB, supported: 16MB
+		BAR 1: current size: 256MB, supported: 64MB 128MB 256MB 512MB 1GB 2GB 4GB 8GB 16GB 32GB
+		BAR 3: current size: 32MB, supported: 32MB

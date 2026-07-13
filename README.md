@@ -12,14 +12,19 @@ above 32GB. New elements:
 
 - **Method 3 — dynamic per-allocation BAR1 P2P** (`docs/48g-4090-p2p/`). Each peer-mapped
   allocation is mapped into a BAR1 window on demand; the GMMU translates the ≤32GB BAR1 VA to the
-  allocation's real framebuffer page anywhere in the 48GB. This keeps **all 48GB VRAM usable at
-  full PCIe Gen4 P2P bandwidth**, entirely in the kernel driver — no userspace / `libcuda` patch,
-  no `OverrideFbSize` cap. The implementation is shared with the `595.71.05-p2p-48g` branch and was
-  validated on hardware there (8× RTX 4090 48G): 22.7 GB/s peer copy, ~20 GB/s NCCL all-reduce
-  busbw, and 1.7× (2-socket Intel) up to 11× (AMD Rome) DDP step-time speedup. NCCL needs
-  `NCCL_P2P_LEVEL=SYS`. Details:
-  [`method3-dynamic-bar1-p2p.md`](docs/48g-4090-p2p/method3-dynamic-bar1-p2p.md),
-  [`method3-test-results.md`](docs/48g-4090-p2p/method3-test-results.md).
+  allocation's real framebuffer page. Combined with the **cuMem** peer-access path that modern
+  NCCL/PyTorch use by default (`NCCL_CUMEM_ENABLE=1`), only the small communication buffers enter
+  BAR1, so **the full ~48GB stays usable for model/activation memory while P2P is active** —
+  verified on hardware: 38GB resident per GPU **and** NCCL all-reduce `via P2P/CUMEM`, data
+  correct. Runs entirely in the kernel driver (no userspace / `libcuda` patch, no `OverrideFbSize`
+  cap). Bandwidth (with `iommu=pt` + ACS off): ~26 GB/s peer copy, ~25 GB/s NCCL all-reduce busbw;
+  NCCL needs `NCCL_P2P_LEVEL=SYS`. (Method 3 is shared with the `595.71.05-p2p-48g` branch.)
+  > **Caveat:** apps using the *legacy* `cudaDeviceEnablePeerAccess` API (e.g. cuda-samples
+  > `simpleP2P`) open the peer's whole device, so they stay capped at ~32GB (BAR1 size) and will
+  > not see all 48GB — use a cuMem/NCCL workload. Details:
+  > [`method3-usable-vram-cumem-vs-legacy.md`](docs/48g-4090-p2p/method3-usable-vram-cumem-vs-legacy.md),
+  > [`method3-dynamic-bar1-p2p.md`](docs/48g-4090-p2p/method3-dynamic-bar1-p2p.md),
+  > [`method3-test-results.md`](docs/48g-4090-p2p/method3-test-results.md).
 - **Offline DKMS package** (`packaging/dkms/`) — builds `nvidia-open-p2p-dkms`, a drop-in
   replacement for the CUDA-repo `nvidia-kernel-open-dkms` that vendors this patched source and
   builds fully offline on the target. See [`packaging/dkms/README.md`](packaging/dkms/README.md).
