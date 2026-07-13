@@ -1,0 +1,147 @@
+### all_gather_perf  NCCL_P2P_LEVEL=SYS
+# nccl-tests version 2.17.6 nccl-headers=22501 nccl-library=22501
+# Collective test starting: all_gather_perf
+# nThread 1 nGpus 4 minBytes 8 maxBytes 1073741824 step: 2(factor) warmup iters: 1 iters: 20 agg iters: 1 validation: 1 graph: 0
+#
+# Using devices
+#  Rank  0 Group  0 Pid 213390 on gpu-node-24g-modded device  0 [0000:01:00] NVIDIA GeForce RTX 4090
+#  Rank  1 Group  0 Pid 213390 on gpu-node-24g-modded device  1 [0000:81:00] NVIDIA GeForce RTX 4090
+#  Rank  2 Group  0 Pid 213390 on gpu-node-24g-modded device  2 [0000:c1:00] NVIDIA GeForce RTX 4090
+#  Rank  3 Group  0 Pid 213390 on gpu-node-24g-modded device  3 [0000:c2:00] NVIDIA GeForce RTX 4090
+NCCL version 2.25.1+cuda12.8
+#
+#                                                              out-of-place                       in-place          
+#       size         count      type   redop    root     time   algbw   busbw  #wrong     time   algbw   busbw  #wrong 
+#        (B)    (elements)                               (us)  (GB/s)  (GB/s)             (us)  (GB/s)  (GB/s)         
+           0             0     float    none      -1     0.42    0.00    0.00       0     0.40    0.00    0.00       0
+           0             0     float    none      -1     0.42    0.00    0.00       0     0.40    0.00    0.00       0
+           0             0     float    none      -1     0.40    0.00    0.00       0     0.40    0.00    0.00       0
+          64             4     float    none      -1    23.39    0.00    0.00       0    22.95    0.00    0.00       0
+         128             8     float    none      -1    23.15    0.01    0.00       0    23.18    0.01    0.00       0
+         256            16     float    none      -1    23.12    0.01    0.01       0    23.43    0.01    0.01       0
+         512            32     float    none      -1    23.31    0.02    0.02       0    23.30    0.02    0.02       0
+        1024            64     float    none      -1    23.54    0.04    0.03       0    23.57    0.04    0.03       0
+        2048           128     float    none      -1    23.70    0.09    0.06       0    23.35    0.09    0.07       0
+        4096           256     float    none      -1    23.28    0.18    0.13       0    23.29    0.18    0.13       0
+        8192           512     float    none      -1    23.24    0.35    0.26       0    23.17    0.35    0.27       0
+       16384          1024     float    none      -1    23.32    0.70    0.53       0    23.46    0.70    0.52       0
+       32768          2048     float    none      -1    23.95    1.37    1.03       0    24.01    1.36    1.02       0
+       65536          4096     float    none      -1    24.74    2.65    1.99       0    24.86    2.64    1.98       0
+      131072          8192     float    none      -1    26.83    4.88    3.66       0    26.34    4.98    3.73       0
+      262144         16384     float    none      -1    42.88    6.11    4.59       0    42.62    6.15    4.61       0
+      524288         32768     float    none      -1    61.09    8.58    6.44       0    61.38    8.54    6.41       0
+     1048576         65536     float    none      -1    86.83   12.08    9.06       0    90.78   11.55    8.66       0
+     2097152        131072     float    none      -1   127.69   16.42   12.32       0   127.89   16.40   12.30       0
+     4194304        262144     float    none      -1   187.29   22.39   16.80       0   179.01   23.43   17.57       0
+     8388608        524288     float    none      -1   314.76   26.65   19.99       0   299.34   28.02   21.02       0
+    16777216       1048576     float    none      -1   554.99   30.23   22.67       0   551.40   30.43   22.82       0
+    33554432       2097152     float    none      -1  1046.50   32.06   24.05       0  1039.58   32.28   24.21       0
+    67108864       4194304     float    none      -1  2068.47   32.44   24.33       0  2065.23   32.49   24.37       0
+   134217728       8388608     float    none      -1  4106.61   32.68   24.51       0  4098.06   32.75   24.56       0
+   268435456      16777216     float    none      -1  8162.02   32.89   24.67       0  8139.84   32.98   24.73       0
+   536870912      33554432     float    none      -1  16216.0   33.11   24.83       0  16197.3   33.15   24.86       0
+  1073741824      67108864     float    none      -1  32225.5   33.32   24.99       0  32095.1   33.45   25.09       0
+# Out of bounds values : 0 OK
+# Avg bus bandwidth    : 8.85646 
+#
+# Collective test concluded: all_gather_perf
+
+
+### reduce_scatter_perf  NCCL_P2P_LEVEL=SYS
+# nccl-tests version 2.17.6 nccl-headers=22501 nccl-library=22501
+# Collective test starting: reduce_scatter_perf
+# nThread 1 nGpus 4 minBytes 8 maxBytes 1073741824 step: 2(factor) warmup iters: 1 iters: 20 agg iters: 1 validation: 1 graph: 0
+#
+# Using devices
+#  Rank  0 Group  0 Pid 213436 on gpu-node-24g-modded device  0 [0000:01:00] NVIDIA GeForce RTX 4090
+#  Rank  1 Group  0 Pid 213436 on gpu-node-24g-modded device  1 [0000:81:00] NVIDIA GeForce RTX 4090
+#  Rank  2 Group  0 Pid 213436 on gpu-node-24g-modded device  2 [0000:c1:00] NVIDIA GeForce RTX 4090
+#  Rank  3 Group  0 Pid 213436 on gpu-node-24g-modded device  3 [0000:c2:00] NVIDIA GeForce RTX 4090
+NCCL version 2.25.1+cuda12.8
+#
+#                                                              out-of-place                       in-place          
+#       size         count      type   redop    root     time   algbw   busbw  #wrong     time   algbw   busbw  #wrong 
+#        (B)    (elements)                               (us)  (GB/s)  (GB/s)             (us)  (GB/s)  (GB/s)         
+           0             0     float     sum      -1     0.42    0.00    0.00       0     0.41    0.00    0.00       0
+           0             0     float     sum      -1     0.41    0.00    0.00       0     0.42    0.00    0.00       0
+           0             0     float     sum      -1     0.42    0.00    0.00       0     0.42    0.00    0.00       0
+          64             4     float     sum      -1    23.31    0.00    0.00       0    23.43    0.00    0.00       0
+         128             8     float     sum      -1    23.34    0.01    0.00       0    23.65    0.01    0.00       0
+         256            16     float     sum      -1    23.38    0.01    0.01       0    23.46    0.01    0.01       0
+         512            32     float     sum      -1    23.18    0.02    0.02       0    23.58    0.02    0.02       0
+        1024            64     float     sum      -1    23.55    0.04    0.03       0    23.84    0.04    0.03       0
+        2048           128     float     sum      -1    23.51    0.09    0.07       0    23.90    0.09    0.06       0
+        4096           256     float     sum      -1    23.52    0.17    0.13       0    23.33    0.18    0.13       0
+        8192           512     float     sum      -1    23.73    0.35    0.26       0    23.50    0.35    0.26       0
+       16384          1024     float     sum      -1    24.15    0.68    0.51       0    23.74    0.69    0.52       0
+       32768          2048     float     sum      -1    24.11    1.36    1.02       0    24.13    1.36    1.02       0
+       65536          4096     float     sum      -1    25.02    2.62    1.96       0    24.94    2.63    1.97       0
+      131072          8192     float     sum      -1    24.70    5.31    3.98       0    26.81    4.89    3.67       0
+      262144         16384     float     sum      -1    41.60    6.30    4.73       0    43.10    6.08    4.56       0
+      524288         32768     float     sum      -1    60.83    8.62    6.46       0    58.10    9.02    6.77       0
+     1048576         65536     float     sum      -1    91.33   11.48    8.61       0    79.67   13.16    9.87       0
+     2097152        131072     float     sum      -1   118.27   17.73   13.30       0   115.48   18.16   13.62       0
+     4194304        262144     float     sum      -1   174.59   24.02   18.02       0   184.61   22.72   17.04       0
+     8388608        524288     float     sum      -1   317.03   26.46   19.84       0   307.77   27.26   20.44       0
+    16777216       1048576     float     sum      -1   565.52   29.67   22.25       0   560.36   29.94   22.45       0
+    33554432       2097152     float     sum      -1  1060.00   31.66   23.74       0  1054.00   31.84   23.88       0
+    67108864       4194304     float     sum      -1  2102.94   31.91   23.93       0  2106.88   31.85   23.89       0
+   134217728       8388608     float     sum      -1  4176.80   32.13   24.10       0  4177.96   32.13   24.09       0
+   268435456      16777216     float     sum      -1  8334.35   32.21   24.16       0  8332.56   32.22   24.16       0
+   536870912      33554432     float     sum      -1  16615.6   32.31   24.23       0  16610.8   32.32   24.24       0
+  1073741824      67108864     float     sum      -1  33119.0   32.42   24.32       0  33103.4   32.44   24.33       0
+# Out of bounds values : 0 OK
+# Avg bus bandwidth    : 8.79861 
+#
+# Collective test concluded: reduce_scatter_perf
+
+
+### alltoall_perf  NCCL_P2P_LEVEL=SYS
+# nccl-tests version 2.17.6 nccl-headers=22501 nccl-library=22501
+# Collective test starting: alltoall_perf
+# nThread 1 nGpus 4 minBytes 8 maxBytes 1073741824 step: 2(factor) warmup iters: 1 iters: 20 agg iters: 1 validation: 1 graph: 0
+#
+# Using devices
+#  Rank  0 Group  0 Pid 213482 on gpu-node-24g-modded device  0 [0000:01:00] NVIDIA GeForce RTX 4090
+#  Rank  1 Group  0 Pid 213482 on gpu-node-24g-modded device  1 [0000:81:00] NVIDIA GeForce RTX 4090
+#  Rank  2 Group  0 Pid 213482 on gpu-node-24g-modded device  2 [0000:c1:00] NVIDIA GeForce RTX 4090
+#  Rank  3 Group  0 Pid 213482 on gpu-node-24g-modded device  3 [0000:c2:00] NVIDIA GeForce RTX 4090
+NCCL version 2.25.1+cuda12.8
+#
+#                                                              out-of-place                       in-place          
+#       size         count      type   redop    root     time   algbw   busbw  #wrong     time   algbw   busbw  #wrong 
+#        (B)    (elements)                               (us)  (GB/s)  (GB/s)             (us)  (GB/s)  (GB/s)         
+           0             0     float    none      -1    24.62    0.00    0.00       0    24.32    0.00    0.00    N/A
+           0             0     float    none      -1    24.99    0.00    0.00       0    24.34    0.00    0.00    N/A
+           0             0     float    none      -1    24.68    0.00    0.00       0    24.54    0.00    0.00    N/A
+          64             4     float    none      -1    26.36    0.00    0.00       0    25.50    0.00    0.00    N/A
+         128             8     float    none      -1    26.00    0.00    0.00       0    26.29    0.00    0.00    N/A
+         256            16     float    none      -1    25.96    0.01    0.01       0    26.05    0.01    0.01    N/A
+         512            32     float    none      -1    26.16    0.02    0.01       0    25.49    0.02    0.02    N/A
+        1024            64     float    none      -1    26.37    0.04    0.03       0    25.74    0.04    0.03    N/A
+        2048           128     float    none      -1    25.96    0.08    0.06       0    25.60    0.08    0.06    N/A
+        4096           256     float    none      -1    31.95    0.13    0.10       0    25.99    0.16    0.12    N/A
+        8192           512     float    none      -1    26.46    0.31    0.23       0    26.29    0.31    0.23    N/A
+       16384          1024     float    none      -1    29.69    0.55    0.41       0    30.11    0.54    0.41    N/A
+       32768          2048     float    none      -1    58.26    0.56    0.42       0    58.36    0.56    0.42    N/A
+       65536          4096     float    none      -1   117.18    0.56    0.42       0   113.90    0.58    0.43    N/A
+      131072          8192     float    none      -1   232.30    0.56    0.42       0   232.06    0.56    0.42    N/A
+      262144         16384     float    none      -1   234.20    1.12    0.84       0   236.41    1.11    0.83    N/A
+      524288         32768     float    none      -1   446.70    1.17    0.88       0   458.11    1.14    0.86    N/A
+     1048576         65536     float    none      -1   722.94    1.45    1.09       0   711.44    1.47    1.11    N/A
+     2097152        131072     float    none      -1  1016.92    2.06    1.55       0   965.87    2.17    1.63    N/A
+     4194304        262144     float    none      -1  1830.98    2.29    1.72       0  1652.82    2.54    1.90    N/A
+     8388608        524288     float    none      -1  3407.34    2.46    1.85       0  3134.80    2.68    2.01    N/A
+    16777216       1048576     float    none      -1  6540.81    2.57    1.92       0  5992.30    2.80    2.10    N/A
+    33554432       2097152     float    none      -1  12960.3    2.59    1.94       0  12350.8    2.72    2.04    N/A
+    67108864       4194304     float    none      -1  24991.6    2.69    2.01       0  23674.8    2.83    2.13    N/A
+   134217728       8388608     float    none      -1  49702.5    2.70    2.03       0  47594.1    2.82    2.12    N/A
+   268435456      16777216     float    none      -1  98856.8    2.72    2.04       0  92783.1    2.89    2.17    N/A
+   536870912      33554432     float    none      -1   196345    2.73    2.05       0   187918    2.86    2.14    N/A
+  1073741824      67108864     float    none      -1   397330    2.70    2.03       0   375447    2.86    2.14    N/A
+# Out of bounds values : 0 OK
+# Avg bus bandwidth    : 0.881861 
+#
+# Collective test concluded: alltoall_perf
+
+

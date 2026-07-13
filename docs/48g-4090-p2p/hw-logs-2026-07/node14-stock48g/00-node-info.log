@@ -1,0 +1,11 @@
+### hostname
+gpu-node-48g-stock
+
+### /proc/driver/nvidia/version
+NVRM version: NVIDIA UNIX x86_64 Kernel Module  580.95.05  Tue Sep 23 10:11:16 UTC 2025
+GCC version:  gcc version 12.3.0 (Ubuntu 12.3.0-1ubuntu1~22.04.2) 
+
+### /proc/cmdline
+BOOT_IMAGE=/boot/vmlinuz-6.8.0-90-generic root=UUID=cab83c54-e4b9-47ed-81ee-965ede488ac5 ro quiet splash vt.handoff=7
+
+### ACSCtl SrcValid+ (P2P-blocking redirect) count: 12

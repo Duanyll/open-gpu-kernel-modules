@@ -1,0 +1,56 @@
+### topo -m
+	[4mGPU0	GPU1	GPU2	GPU3	NIC0	CPU Affinity	NUMA Affinity	GPU NUMA ID[0m
+GPU0	 X 	NODE	NODE	NODE	NODE	0-31	0		N/A
+GPU1	NODE	 X 	NODE	NODE	PHB	0-31	0		N/A
+GPU2	NODE	NODE	 X 	PHB	NODE	0-31	0		N/A
+GPU3	NODE	NODE	PHB	 X 	NODE	0-31	0		N/A
+NIC0	NODE	PHB	NODE	NODE	 X 				
+
+Legend:
+
+  X    = Self
+  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)
+  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node
+  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
+  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
+  PIX  = Connection traversing at most a single PCIe bridge
+  NV#  = Connection traversing a bonded set of # NVLinks
+
+NIC Legend:
+
+  NIC0: mlx5_0
+
+
+### topo -p2p r (read)
+ 	[4mGPU0	GPU1	GPU2	GPU3	[0m
+ GPU0	X	OK	OK	OK	
+ GPU1	OK	X	OK	OK	
+ GPU2	OK	OK	X	OK	
+ GPU3	OK	OK	OK	X	
+
+Legend:
+
+  X    = Self
+  OK   = Status Ok
+  CNS  = Chipset not supported
+  GNS  = GPU not supported
+  TNS  = Topology not supported
+  NS   = Not supported
+  U    = Unknown
+
+### topo -p2p w (write)
+ 	[4mGPU0	GPU1	GPU2	GPU3	[0m
+ GPU0	X	OK	OK	OK	
+ GPU1	OK	X	OK	OK	
+ GPU2	OK	OK	X	OK	
+ GPU3	OK	OK	OK	X	
+
+Legend:
+
+  X    = Self
+  OK   = Status Ok
+  CNS  = Chipset not supported
+  GNS  = GPU not supported
+  TNS  = Topology not supported
+  NS   = Not supported
+  U    = Unknown

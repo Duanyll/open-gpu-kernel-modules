@@ -1,0 +1,77 @@
+[P2P (Peer-to-Peer) GPU Bandwidth Latency Test]
+Device: 0, NVIDIA GeForce RTX 4090, pciBusID: 1, pciDeviceID: 0, pciDomainID:0
+Device: 1, NVIDIA GeForce RTX 4090, pciBusID: 81, pciDeviceID: 0, pciDomainID:0
+Device: 2, NVIDIA GeForce RTX 4090, pciBusID: c1, pciDeviceID: 0, pciDomainID:0
+Device: 3, NVIDIA GeForce RTX 4090, pciBusID: c2, pciDeviceID: 0, pciDomainID:0
+Device=0 CAN Access Peer Device=1
+Device=0 CAN Access Peer Device=2
+Device=0 CAN Access Peer Device=3
+Device=1 CAN Access Peer Device=0
+Device=1 CAN Access Peer Device=2
+Device=1 CAN Access Peer Device=3
+Device=2 CAN Access Peer Device=0
+Device=2 CAN Access Peer Device=1
+Device=2 CAN Access Peer Device=3
+Device=3 CAN Access Peer Device=0
+Device=3 CAN Access Peer Device=1
+Device=3 CAN Access Peer Device=2
+
+***NOTE: In case a device doesn't have P2P access to other one, it falls back to normal memcopy procedure.
+So you can see lesser Bandwidth (GB/s) and unstable Latency (us) in those cases.
+
+P2P Connectivity Matrix
+     D\D     0     1     2     3
+     0	     1     1     1     1
+     1	     1     1     1     1
+     2	     1     1     1     1
+     3	     1     1     1     1
+Unidirectional P2P=Disabled Bandwidth Matrix (GB/s)
+   D\D     0      1      2      3 
+     0 917.43  11.84  12.12  12.74 
+     1  13.05 926.75  11.85  12.97 
+     2  12.98  12.43 927.90  12.47 
+     3  13.22  12.22  11.98 927.85 
+Unidirectional P2P=Enabled Bandwidth (P2P Writes) Matrix (GB/s)
+   D\D     0      1      2      3 
+     0 918.46  25.64  26.03  26.39 
+     1  26.15 945.73  26.04  26.39 
+     2  25.80  25.94 946.97  26.39 
+     3  25.85  25.80  26.39 945.25 
+Bidirectional P2P=Disabled Bandwidth Matrix (GB/s)
+   D\D     0      1      2      3 
+     0 921.83  12.85  12.85  13.38 
+     1  12.90 926.42  12.34  12.85 
+     2  12.81  12.37 899.28  12.48 
+     3  13.36  12.87  12.58 926.75 
+Bidirectional P2P=Enabled Bandwidth Matrix (GB/s)
+   D\D     0      1      2      3 
+     0 921.83  49.88  50.49  51.22 
+     1  50.52 923.19  50.39  51.23 
+     2  50.46  50.67 925.10  51.23 
+     3  50.18  50.62  51.23 925.32 
+P2P=Disabled Latency Matrix (us)
+   GPU     0      1      2      3 
+     0   1.26  12.34  20.47  20.55 
+     1  15.34   1.33  14.91  13.92 
+     2  14.59  14.29   1.31  15.21 
+     3  16.42  16.09  13.10   1.32 
+
+   CPU     0      1      2      3 
+     0   3.50  10.88   9.87   9.93 
+     1  10.69   3.42  10.86  10.79 
+     2  10.86  10.94   3.43  10.81 
+     3  11.02  10.67  10.67   3.39 
+P2P=Enabled Latency (P2P Writes) Matrix (us)
+   GPU     0      1      2      3 
+     0   1.26   1.29   1.28   1.28 
+     1   1.31   1.33   1.32   1.29 
+     2   1.21   1.17   1.30   1.03 
+     3   1.23   1.19   1.04   1.33 
+
+   CPU     0      1      2      3 
+     0   3.50   3.11   2.96   2.96 
+     1   2.99   3.42   2.97   3.05 
+     2   3.01   2.98   3.52   2.99 
+     3   3.03   3.00   2.99   3.55 
+
+NOTE: The CUDA Samples are not meant for performance measurements. Results may vary when GPU Boost is enabled.
