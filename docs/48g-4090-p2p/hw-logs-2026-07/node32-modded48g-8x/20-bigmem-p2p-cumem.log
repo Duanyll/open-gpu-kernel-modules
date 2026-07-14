@@ -1,0 +1,81 @@
+W0714 01:54:54.302000 424 site-packages/torch/distributed/run.py:774] 
+W0714 01:54:54.302000 424 site-packages/torch/distributed/run.py:774] *****************************************
+W0714 01:54:54.302000 424 site-packages/torch/distributed/run.py:774] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0714 01:54:54.302000 424 site-packages/torch/distributed/run.py:774] *****************************************
+[env] NCCL_CUMEM_ENABLE=1 NCCL_P2P_LEVEL=SYS world=2 GPU total=47.4 GiB
+rank1: resident model = 38.0 GiB (free left 8.9 GiB) — now doing NCCL P2P
+rank0: resident model = 38.0 GiB (free left 8.9 GiB) — now doing NCCL P2P
+488137c8fec6:505:505 [0] NCCL INFO Bootstrap: Using eth0:<redacted-ip><0>
+488137c8fec6:505:505 [0] NCCL INFO cudaDriverVersion 13020
+488137c8fec6:505:505 [0] NCCL INFO NCCL version 2.27.3+cuda12.9
+488137c8fec6:505:505 [0] NCCL INFO Comm config Blocking set to 1
+488137c8fec6:506:506 [1] NCCL INFO cudaDriverVersion 13020
+488137c8fec6:506:506 [1] NCCL INFO Bootstrap: Using eth0:<redacted-ip><0>
+488137c8fec6:506:506 [1] NCCL INFO NCCL version 2.27.3+cuda12.9
+488137c8fec6:506:506 [1] NCCL INFO Comm config Blocking set to 1
+488137c8fec6:505:520 [0] NCCL INFO NET/Plugin: Could not find: libnccl-net.so. 
+488137c8fec6:505:520 [0] NCCL INFO Failed to open libibverbs.so[.1]
+488137c8fec6:505:520 [0] NCCL INFO NET/Socket : Using [0]eth0:<redacted-ip><0>
+488137c8fec6:505:520 [0] NCCL INFO Initialized NET plugin Socket
+488137c8fec6:505:520 [0] NCCL INFO Assigned NET plugin Socket to comm
+488137c8fec6:505:520 [0] NCCL INFO Using network Socket
+488137c8fec6:505:520 [0] NCCL INFO ncclCommInitRankConfig comm 0x5a99cdd63520 rank 0 nranks 2 cudaDev 0 nvmlDev 0 busId 17000 commId 0x8853cf2c9fb03df2 - Init START
+488137c8fec6:506:521 [1] NCCL INFO NET/Plugin: Could not find: libnccl-net.so. 
+488137c8fec6:506:521 [1] NCCL INFO Failed to open libibverbs.so[.1]
+488137c8fec6:506:521 [1] NCCL INFO NET/Socket : Using [0]eth0:<redacted-ip><0>
+488137c8fec6:506:521 [1] NCCL INFO Initialized NET plugin Socket
+488137c8fec6:506:521 [1] NCCL INFO Assigned NET plugin Socket to comm
+488137c8fec6:506:521 [1] NCCL INFO Using network Socket
+488137c8fec6:506:521 [1] NCCL INFO ncclCommInitRankConfig comm 0x63bf4e1c6fd0 rank 1 nranks 2 cudaDev 1 nvmlDev 1 busId 6f000 commId 0x8853cf2c9fb03df2 - Init START
+488137c8fec6:506:521 [1] NCCL INFO RAS client listening socket at ::1<28028>
+488137c8fec6:505:520 [0] NCCL INFO RAS client listening socket at ::1<28028>
+488137c8fec6:505:520 [0] NCCL INFO Bootstrap timings total 0.014433 (create 0.000035, send 0.000097, recv 0.013841, ring 0.000025, delay 0.000000)
+488137c8fec6:506:521 [1] NCCL INFO Bootstrap timings total 0.000779 (create 0.000023, send 0.000078, recv 0.000338, ring 0.000019, delay 0.000000)
+488137c8fec6:505:520 [0] NCCL INFO NCCL_CUMEM_ENABLE set by environment to 1.
+488137c8fec6:506:521 [1] NCCL INFO NCCL_CUMEM_ENABLE set by environment to 1.
+488137c8fec6:506:521 [1] NCCL INFO NCCL_P2P_LEVEL set by environment to SYS
+488137c8fec6:505:520 [0] NCCL INFO NCCL_P2P_LEVEL set by environment to SYS
+488137c8fec6:506:521 [1] NCCL INFO Setting affinity for GPU 1 to 0-19,40-59
+488137c8fec6:505:520 [0] NCCL INFO Setting affinity for GPU 0 to 0-19,40-59
+488137c8fec6:505:520 [0] NCCL INFO comm 0x5a99cdd63520 rank 0 nRanks 2 nNodes 1 localRanks 2 localRank 0 MNNVL 0
+488137c8fec6:506:521 [1] NCCL INFO comm 0x63bf4e1c6fd0 rank 1 nRanks 2 nNodes 1 localRanks 2 localRank 1 MNNVL 0
+488137c8fec6:505:520 [0] NCCL INFO Channel 00/02 : 0 1
+488137c8fec6:505:520 [0] NCCL INFO Channel 01/02 : 0 1
+488137c8fec6:506:521 [1] NCCL INFO Trees [0] -1/-1/-1->1->0 [1] -1/-1/-1->1->0
+488137c8fec6:505:520 [0] NCCL INFO Trees [0] 1/-1/-1->0->-1 [1] 1/-1/-1->0->-1
+488137c8fec6:506:521 [1] NCCL INFO P2P Chunksize set to 131072
+488137c8fec6:505:520 [0] NCCL INFO P2P Chunksize set to 131072
+488137c8fec6:505:520 [0] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so. 
+488137c8fec6:506:521 [1] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so. 
+488137c8fec6:505:520 [0] NCCL INFO Check P2P Type isAllDirectP2p 1 directMode 0
+488137c8fec6:506:524 [1] NCCL INFO [Proxy Service] Device 1 CPU core 46
+488137c8fec6:505:527 [0] NCCL INFO [Proxy Service UDS] Device 0 CPU core 49
+488137c8fec6:505:525 [0] NCCL INFO [Proxy Service] Device 0 CPU core 6
+488137c8fec6:506:526 [1] NCCL INFO [Proxy Service UDS] Device 1 CPU core 48
+488137c8fec6:506:521 [1] NCCL INFO threadThresholds 8/8/64 | 16/8/64 | 512 | 512
+488137c8fec6:506:521 [1] NCCL INFO 2 coll channels, 2 collnet channels, 0 nvls channels, 2 p2p channels, 2 p2p channels per peer
+488137c8fec6:505:520 [0] NCCL INFO threadThresholds 8/8/64 | 16/8/64 | 512 | 512
+488137c8fec6:505:520 [0] NCCL INFO 2 coll channels, 2 collnet channels, 0 nvls channels, 2 p2p channels, 2 p2p channels per peer
+488137c8fec6:505:520 [0] NCCL INFO CC Off, workFifoBytes 1048576
+488137c8fec6:505:520 [0] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so. Using internal tuner plugin.
+488137c8fec6:506:521 [1] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so. Using internal tuner plugin.
+488137c8fec6:505:520 [0] NCCL INFO ncclCommInitRankConfig comm 0x5a99cdd63520 rank 0 nranks 2 cudaDev 0 nvmlDev 0 busId 17000 commId 0x8853cf2c9fb03df2 - Init COMPLETE
+488137c8fec6:506:521 [1] NCCL INFO ncclCommInitRankConfig comm 0x63bf4e1c6fd0 rank 1 nranks 2 cudaDev 1 nvmlDev 1 busId 6f000 commId 0x8853cf2c9fb03df2 - Init COMPLETE
+488137c8fec6:506:521 [1] NCCL INFO Init timings - ncclCommInitRankConfig: rank 1 nranks 2 total 0.15 (kernels 0.13, alloc 0.00, bootstrap 0.00, allgathers 0.00, topo 0.01, graphs 0.00, connections 0.00, rest 0.00)
+488137c8fec6:505:520 [0] NCCL INFO Init timings - ncclCommInitRankConfig: rank 0 nranks 2 total 0.16 (kernels 0.13, alloc 0.01, bootstrap 0.01, allgathers 0.00, topo 0.01, graphs 0.00, connections 0.00, rest 0.00)
+488137c8fec6:505:529 [0] NCCL INFO Channel 00/0 : 0[0] -> 1[1] via P2P/CUMEM
+488137c8fec6:505:529 [0] NCCL INFO Channel 01/0 : 0[0] -> 1[1] via P2P/CUMEM
+488137c8fec6:506:528 [1] NCCL INFO Channel 00/0 : 1[1] -> 0[0] via P2P/CUMEM
+488137c8fec6:506:528 [1] NCCL INFO Channel 01/0 : 1[1] -> 0[0] via P2P/CUMEM
+488137c8fec6:506:528 [1] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+488137c8fec6:505:529 [0] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+rank1: all_reduce OK  correct=True  peak_resident=39.4 GiB
+rank0: all_reduce OK  correct=True  peak_resident=39.4 GiB
+/opt/conda/lib/python3.11/site-packages/torch/distributed/distributed_c10d.py:4807: UserWarning: No device id is provided via `init_process_group` or `barrier `. Using the current device set by the user. 
+  warnings.warn(  # warn only once
+/opt/conda/lib/python3.11/site-packages/torch/distributed/distributed_c10d.py:4807: UserWarning: No device id is provided via `init_process_group` or `barrier `. Using the current device set by the user. 
+  warnings.warn(  # warn only once
+
+==== PASS — NCCL P2P works with >32 GiB resident  (model 38.0 GiB > 32 GiB, P2P collective correct) ====
+488137c8fec6:506:506 [1] NCCL INFO comm 0x63bf4e1c6fd0 rank 1 nranks 2 cudaDev 1 busId 6f000 - Destroy COMPLETE
+488137c8fec6:505:505 [0] NCCL INFO comm 0x5a99cdd63520 rank 0 nranks 2 cudaDev 0 busId 17000 - Destroy COMPLETE

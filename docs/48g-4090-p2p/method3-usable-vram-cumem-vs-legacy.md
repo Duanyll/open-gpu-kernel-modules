@@ -30,17 +30,13 @@ two peer-access APIs resolve that ambiguity in opposite ways:
   ```
 
   (a single 34 GiB peer-map request rejected against the 32 GiB BAR1). Writes that *do* land above
-  32 GB are not remapped and corrupt — this is exactly the failure ChihayaK and issue #14 reported.
+  32 GB are not remapped and corrupt.
 
 - **cuMem (`cuMemCreate` + `cuMemSetAccess`)** grants peer access to **specific allocations only**.
   Modern NCCL allocates its own communication buffers this way and calls `cuMemSetAccess` on just
   those. Only the comm buffers (tens–hundreds of MB) enter the 32 GB BAR1; the model/activation
   memory is never peer-mapped and can occupy the full framebuffer. This is what makes Method 3
   deliver "all 48 GB usable with P2P" in practice.
-
-The design note [`method3-dynamic-bar1-p2p.md`](method3-dynamic-bar1-p2p.md) §4 anticipated this
-("旧式 `cudaDeviceEnablePeerAccess` 会在驱动层开放整块 peer 设备；强制 cuMem …可避免"); this
-document is the hardware confirmation.
 
 ## Hardware evidence (4× RTX 4090 48G, driver 595.71.05, `iommu=pt`, ACS off)
 

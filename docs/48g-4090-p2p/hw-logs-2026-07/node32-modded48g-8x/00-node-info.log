@@ -1,0 +1,11 @@
+### hostname
+gpu-node-48g-8x
+
+### /proc/driver/nvidia/version
+NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  595.71.05  Release Build  (root@gpu-node-48g-8x)  Tue Jun 30 04:55:33 PM UTC 2026
+GCC version:  gcc version 12.3.0 (Ubuntu 12.3.0-1ubuntu1~22.04.3) 
+
+### /proc/cmdline
+BOOT_IMAGE=/vmlinuz-6.8.0-124-generic root=/dev/mapper/ubuntu--vg-ubuntu--lv ro console=tty0 console=ttyS0,115200n8
+
+### ACSCtl SrcValid+ (P2P-blocking redirect) count: 13

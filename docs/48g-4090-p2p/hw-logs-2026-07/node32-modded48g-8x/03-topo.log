@@ -1,0 +1,70 @@
+### topo -m
+	[4mGPU0	GPU1	GPU2	GPU3	GPU4	GPU5	GPU6	GPU7	NIC0	NIC1	CPU Affinity	NUMA Affinity	GPU NUMA ID[0m
+GPU0	 X 	NODE	NODE	NODE	SYS	SYS	SYS	SYS	SYS	SYS	0-19,40-59	0		N/A
+GPU1	NODE	 X 	NODE	NODE	SYS	SYS	SYS	SYS	SYS	SYS	0-19,40-59	0		N/A
+GPU2	NODE	NODE	 X 	NODE	SYS	SYS	SYS	SYS	SYS	SYS	0-19,40-59	0		N/A
+GPU3	NODE	NODE	NODE	 X 	SYS	SYS	SYS	SYS	SYS	SYS	0-19,40-59	0		N/A
+GPU4	SYS	SYS	SYS	SYS	 X 	NODE	NODE	NODE	NODE	NODE	20-39,60-79	1		N/A
+GPU5	SYS	SYS	SYS	SYS	NODE	 X 	NODE	NODE	NODE	NODE	20-39,60-79	1		N/A
+GPU6	SYS	SYS	SYS	SYS	NODE	NODE	 X 	NODE	NODE	NODE	20-39,60-79	1		N/A
+GPU7	SYS	SYS	SYS	SYS	NODE	NODE	NODE	 X 	NODE	NODE	20-39,60-79	1		N/A
+NIC0	SYS	SYS	SYS	SYS	NODE	NODE	NODE	NODE	 X 	PIX				
+NIC1	SYS	SYS	SYS	SYS	NODE	NODE	NODE	NODE	PIX	 X 				
+
+Legend:
+
+  X    = Self
+  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)
+  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node
+  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)
+  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)
+  PIX  = Connection traversing at most a single PCIe bridge
+  NV#  = Connection traversing a bonded set of # NVLinks
+
+NIC Legend:
+
+  NIC0: mlx5_0
+  NIC1: mlx5_1
+
+
+### topo -p2p r (read)
+ 	[4mGPU0	GPU1	GPU2	GPU3	GPU4	GPU5	GPU6	GPU7	[0m
+ GPU0	X	OK	OK	OK	OK	OK	OK	OK	
+ GPU1	OK	X	OK	OK	OK	OK	OK	OK	
+ GPU2	OK	OK	X	OK	OK	OK	OK	OK	
+ GPU3	OK	OK	OK	X	OK	OK	OK	OK	
+ GPU4	OK	OK	OK	OK	X	OK	OK	OK	
+ GPU5	OK	OK	OK	OK	OK	X	OK	OK	
+ GPU6	OK	OK	OK	OK	OK	OK	X	OK	
+ GPU7	OK	OK	OK	OK	OK	OK	OK	X	
+
+Legend:
+
+  X    = Self
+  OK   = Status Ok
+  CNS  = Chipset not supported
+  GNS  = GPU not supported
+  TNS  = Topology not supported
+  NS   = Not supported
+  U    = Unknown
+
+### topo -p2p w (write)
+ 	[4mGPU0	GPU1	GPU2	GPU3	GPU4	GPU5	GPU6	GPU7	[0m
+ GPU0	X	OK	OK	OK	OK	OK	OK	OK	
+ GPU1	OK	X	OK	OK	OK	OK	OK	OK	
+ GPU2	OK	OK	X	OK	OK	OK	OK	OK	
+ GPU3	OK	OK	OK	X	OK	OK	OK	OK	
+ GPU4	OK	OK	OK	OK	X	OK	OK	OK	
+ GPU5	OK	OK	OK	OK	OK	X	OK	OK	
+ GPU6	OK	OK	OK	OK	OK	OK	X	OK	
+ GPU7	OK	OK	OK	OK	OK	OK	OK	X	
+
+Legend:
+
+  X    = Self
+  OK   = Status Ok
+  CNS  = Chipset not supported
+  GNS  = GPU not supported
+  TNS  = Topology not supported
+  NS   = Not supported
+  U    = Unknown
