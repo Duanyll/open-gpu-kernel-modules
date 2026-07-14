@@ -1,0 +1,10 @@
+Visible GPUs: 8, buffer=256MB
+   self     22.7    22.7    22.7    22.7    22.7    22.7    22.6   <- GPU0 as src (GB/s, row=src col=dst)
+   22.7    self     22.7    22.7    22.6    22.7    22.7    22.7   <- GPU1 as src (GB/s, row=src col=dst)
+   22.7    22.7    self     22.7    22.6    22.7    22.7    22.7   <- GPU2 as src (GB/s, row=src col=dst)
+   22.7    22.7    22.7    self     22.7    22.7    22.7    22.7   <- GPU3 as src (GB/s, row=src col=dst)
+   22.6    22.7    22.7    22.7    self     22.7    22.7    22.7   <- GPU4 as src (GB/s, row=src col=dst)
+   22.6    22.7    22.7    22.7    22.7    self     22.7    22.7   <- GPU5 as src (GB/s, row=src col=dst)
+   22.7    22.7    22.7    22.7    22.7    22.7    self     22.7   <- GPU6 as src (GB/s, row=src col=dst)
+   22.7    22.6    22.7    22.7    22.7    22.7    22.7    self    <- GPU7 as src (GB/s, row=src col=dst)
+done
