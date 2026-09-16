@@ -3708,6 +3708,7 @@ _nvGpuOpsDynBar1Create(subDeviceDesc *rmSubDevice,
     RmPhysAddr          windowPhys;
     RmPhysAddr          dmaBase = 0;
     NvU64               bar1Size = kbusGetPciBarSize(pRemoteKernelBus, 1);
+    NvU64               remoteMappedBytes = 0;
     gpuDynBar1P2PMapping *pMap;
     NvBool              bRemoteLockTaken = (rmDeviceGpuLockIsOwner(gpuGetInstance(pRemoteGpu)) ||
                                             rmGpuLockIsOwner());
@@ -3719,16 +3720,24 @@ _nvGpuOpsDynBar1Create(subDeviceDesc *rmSubDevice,
     // Minimal BAR1 budget guard: refuse new windows past (BAR1 - reserve) with a
     // clear error instead of letting kbusMapFbAperture silently exhaust BAR1 VA.
     // NCCL's default transport buffers are tiny, but user-buffer / CUDA-graph
-    // registration can expose large user allocations to peers. (Accounting is
-    // per source subdevice, which is conservative vs the remote BAR1 it consumes.)
+    // registration can expose large user allocations to peers. Count only the
+    // windows for this remote GPU: windows on other GPUs consume other BARs.
+    // This is a per-source/per-remote early check, not global BAR1 admission;
+    // kbusMapFbAperture remains authoritative for the remote aperture.
     //
+    for (pMap = rmSubDevice->pDynBar1List; pMap != NULL; pMap = pMap->pNext)
+    {
+        if (pMap->pRemoteGpu == pRemoteGpu)
+            remoteMappedBytes += pMap->size;
+    }
+
     if ((bar1Size != 0) &&
-        ((rmSubDevice->dynBar1MappedBytes + mapSize + DYN_BAR1_P2P_RESERVE) > bar1Size))
+        ((remoteMappedBytes + mapSize + DYN_BAR1_P2P_RESERVE) > bar1Size))
     {
         NV_PRINTF(LEVEL_ERROR,
                   "METHOD3: dynamic BAR1 P2P budget exceeded on GPU%u: mapped 0x%llx + "
                   "0x%llx + reserve 0x%llx > BAR1 0x%llx\n",
-                  gpuGetInstance(pRemoteGpu), rmSubDevice->dynBar1MappedBytes,
+                  gpuGetInstance(pRemoteGpu), remoteMappedBytes,
                   mapSize, DYN_BAR1_P2P_RESERVE, bar1Size);
         return NV_ERR_INSUFFICIENT_RESOURCES;
     }
