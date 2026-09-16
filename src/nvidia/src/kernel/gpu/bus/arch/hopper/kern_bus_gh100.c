@@ -1464,12 +1464,7 @@ kbusIsPcieBar1P2PMappingSupported_GH100
         return NV_FALSE;
     }
 
-    // Both of GPUs need to have the static bar1 enabled
-    if (!kbusIsStaticBar1Enabled(pGpu0, pKernelBus0) ||
-        !kbusIsStaticBar1Enabled(pGpu1, pKernelBus1))
-    {
-        return NV_FALSE;
-    }
+    // Dynamic peers map individual allocations; static peers map the full FB.
 
     //
     // RM only supports one type of PCIE P2P protocol, either BAR1 P2P or mailbox P2P, between
@@ -1481,6 +1476,21 @@ kbusIsPcieBar1P2PMappingSupported_GH100
         (pKernelBus1->p2pPcie.peerNumberMask[gpuInst0] != 0))
     {
         return NV_FALSE;
+    }
+
+    // Mixed pairs lack the bidirectional static IOMMU mapping. Advertising
+    // BAR1 P2P would allow the static encoder to target an unmapped window.
+    {
+        NvBool bStatic0 = kbusIsStaticBar1Enabled(pGpu0, pKernelBus0);
+        NvBool bStatic1 = kbusIsStaticBar1Enabled(pGpu1, pKernelBus1);
+        if (bStatic0 != bStatic1)
+        {
+            NV_PRINTF(LEVEL_WARNING,
+                      "METHOD3: mixed static/dynamic BAR1 (GPU%u static=%u, GPU%u static=%u); "
+                      "BAR1 P2P not advertised\n",
+                      gpuInst0, (NvU32)bStatic0, gpuInst1, (NvU32)bStatic1);
+            return NV_FALSE;
+        }
     }
 
     return NV_TRUE;
@@ -1743,8 +1753,13 @@ kbusCreateP2PMappingForBar1P2P_GH100
     if ((pKernelBus0->p2pPcieBar1.busBar1PeerRefcount[gpuInst1] == 0) &&
         (pKernelBus1->p2pPcieBar1.busBar1PeerRefcount[gpuInst0] == 0))
     {
-        NV_ASSERT_OK_OR_RETURN(_kbusCreateStaticBar1IOMMUMappingForGpuPair(pGpu0, pKernelBus0,
-                                                                           pGpu1, pKernelBus1));
+        // Dynamic windows acquire their IOMMU mappings per allocation.
+        if (kbusIsStaticBar1Enabled(pGpu0, pKernelBus0) &&
+            kbusIsStaticBar1Enabled(pGpu1, pKernelBus1))
+        {
+            NV_ASSERT_OK_OR_RETURN(_kbusCreateStaticBar1IOMMUMappingForGpuPair(pGpu0, pKernelBus0,
+                                                                               pGpu1, pKernelBus1));
+        }
     }
 
     pKernelBus0->p2pPcieBar1.busBar1PeerRefcount[gpuInst1]++;
@@ -1800,7 +1815,11 @@ kbusRemoveP2PMappingForBar1P2P_GH100
     if ((pKernelBus0->p2pPcieBar1.busBar1PeerRefcount[gpuInst1] == 0) &&
         (pKernelBus1->p2pPcieBar1.busBar1PeerRefcount[gpuInst0] == 0))
     {
-        _kbusRemoveStaticBar1IOMMUMappingForGpuPair(pGpu0, pKernelBus0, pGpu1, pKernelBus1);
+        if (kbusIsStaticBar1Enabled(pGpu0, pKernelBus0) &&
+            kbusIsStaticBar1Enabled(pGpu1, pKernelBus1))
+        {
+            _kbusRemoveStaticBar1IOMMUMappingForGpuPair(pGpu0, pKernelBus0, pGpu1, pKernelBus1);
+        }
     }
 
     NV_PRINTF(LEVEL_INFO, "removed PCIe BAR1 P2P mapping between GPU%u and GPU%u\n",

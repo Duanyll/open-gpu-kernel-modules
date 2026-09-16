@@ -604,8 +604,12 @@ p2papiConstruct_IMPL
                                                            DRF_DEF(_P2PAPI, _ATTRIBUTES, _REMOTE_EGM, _YES)));
         }
 
+        // Dynamic peer windows have no whole-FB DMA region. Keep the sentinel
+        // DMA info; UVM external allocations receive their own window addresses.
         if ((p2pConnectionType == P2P_CONNECTIVITY_PCIE_BAR1) &&
-            (pCallContext->secInfo.privLevel >= RS_PRIV_LEVEL_KERNEL))
+            (pCallContext->secInfo.privLevel >= RS_PRIV_LEVEL_KERNEL) &&
+            kbusIsStaticBar1Enabled(pLocalGpu, pLocalKernelBus) &&
+            kbusIsStaticBar1Enabled(pRemoteGpu, pRemoteKernelBus))
         {
             NV_CHECK_OK_OR_RETURN(LEVEL_ERROR,
                                   kbusGetBar1P2PDmaInfo_HAL(pLocalGpu, pRemoteGpu,
