@@ -62,19 +62,48 @@ separate console mapping.
    - Run `sudo update-grub`
 3. Install the [NVIDIA 615.71.09 driver](https://www.nvidia.com/en-us/drivers/details/278450/).
 4. Run `./install.sh` in this repo.
-5. For mixed-generation P2P, back up and patch the system `libcuda` as described below.
+5. For mixed-generation P2P or experimental GeForce DMA-BUF RDMA, apply the optional `libcuda` patch below.
 6. Reboot the server.
 
-## Mixed-generation `libcuda` patch
+## Optional `libcuda` patches
 
-Set `LIBCUDA` to your installed library, back it up, and run
-[`patch-libcuda-p2p.py`](patch-libcuda-p2p.py):
+[`patch-libcuda-p2p.py`](patch-libcuda-p2p.py) supports three selections:
 
-```
+| Option | Effect |
+| --- | --- |
+| `--patch p2p` (default) | Apply the four mixed-generation P2P changes. |
+| `--patch gdr` | Add the experimental GeForce DMA-BUF/GDR capability bit. |
+| `--patch all` | Apply both sets. |
+
+The GDR patch is reviewed against **x86-64 libcuda 615.71.09**. Its initialization
+and attribute checks have been verified by disassembly; GPU runtime behavior on
+615 is untested. It does not enable legacy `nvidia-peermem`. See the
+[binary analysis and validation notes](docs/libcuda-gdr-615.md).
+
+Start with a separate library copy for a CUDA test process:
+
+```sh
 LIBCUDA=/usr/lib/x86_64-linux-gnu/libcuda.so.1
-sudo cp "$LIBCUDA" "$LIBCUDA.bak"
-sudo ./patch-libcuda-p2p.py "$LIBCUDA"
+PATCH_DIR="$(mktemp -d)"
+./patch-libcuda-p2p.py "$LIBCUDA" --patch gdr --dry-run
+./patch-libcuda-p2p.py "$LIBCUDA" --patch gdr --output "$PATCH_DIR/libcuda.so.615.71.09"
+ln -s libcuda.so.615.71.09 "$PATCH_DIR/libcuda.so.1"
+ln -s libcuda.so.615.71.09 "$PATCH_DIR/libcuda.so"
+LD_LIBRARY_PATH="$PATCH_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./your-cuda-test
 ```
+
+Use `--patch all` in both commands if the test also needs mixed-generation P2P.
+Without `--output`, the script patches the resolved input path and retains a
+`.bak.<input-hash>` backup beside it. For example, the existing P2P-only invocation is:
+
+```sh
+sudo ./patch-libcuda-p2p.py "$LIBCUDA" --patch p2p
+```
+
+All selected signatures must match uniquely before any file is written.
+Repeated runs recognize already-applied changes; output copies never overwrite
+an existing path. Unreviewed GDR layouts are rejected. A driver update requires
+checking and patching the newly installed library again.
 
 ## Forcing 3090s to use PCIe instead of NVLink
 

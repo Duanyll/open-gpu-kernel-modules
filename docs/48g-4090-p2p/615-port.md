@@ -19,6 +19,10 @@ The complete aikitoria 615 stack is retained: PCIe/NVLink selection, cross-gener
 P2P and its `libcuda` patch, static BAR1 firmware-console sharing, and experimental
 hugetlb `cudaHostRegister`. Cross-architecture PCIe atomics remain disabled.
 
+The userspace patcher also has an independently selectable DMA-BUF/GDR capability
+patch for the reviewed 615 libcuda layout. Its binary analysis and test scope are
+recorded in [libcuda-gdr-615.md](../libcuda-gdr-615.md); it is not applied by the DKMS package.
+
 NVIDIA 615 already releases `session->devicesLock` before `pRmApi->Free` in
 `nvGpuOpsRmDeviceDestroy`, fixing the teardown side of the observed session/client
 lock inversion. This branch also removes the mapping-side lock acquisition:
