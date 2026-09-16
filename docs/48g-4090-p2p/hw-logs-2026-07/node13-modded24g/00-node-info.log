@@ -1,0 +1,11 @@
+### hostname
+gpu-node-24g-modded
+
+### /proc/driver/nvidia/version
+NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  590.48.01  Release Build  (root@gpu-node-24g-modded)  Fri Jul 10 13:58:01 +08 2026
+GCC version:  gcc version 14.2.0 (Debian 14.2.0-19) 
+
+### /proc/cmdline
+BOOT_IMAGE=/vmlinuz-6.12.95+deb13-amd64 root=/dev/mapper/redacted-host--Super--Server--13--vg-root ro quiet amd_iommu=on iommu=pt
+
+### ACSCtl SrcValid+ (P2P-blocking redirect) count: 0

@@ -1,0 +1,128 @@
+
+==============NVSMI LOG==============
+
+Timestamp                                              : Tue Jul 14 09:55:40 2026
+Driver Version                                         : 595.71.05
+CUDA Version                                           : 13.2
+
+Attached GPUs                                          : 8
+GPU 00000000:17:00.0
+    FB Memory Usage
+        Total                                          : 49140 MiB
+        Reserved                                       : 630 MiB
+        Used                                           : 1 MiB
+        Free                                           : 48510 MiB
+    BAR1 Memory Usage
+        Total                                          : 32768 MiB
+        Used                                           : 1 MiB
+        Free                                           : 32767 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : 0 MiB
+        Used                                           : 0 MiB
+        Free                                           : 0 MiB
+
+GPU 00000000:6F:00.0
+    FB Memory Usage
+        Total                                          : 49140 MiB
+        Reserved                                       : 630 MiB
+        Used                                           : 1 MiB
+        Free                                           : 48510 MiB
+    BAR1 Memory Usage
+        Total                                          : 32768 MiB
+        Used                                           : 1 MiB
+        Free                                           : 32767 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : 0 MiB
+        Used                                           : 0 MiB
+        Free                                           : 0 MiB
+
+GPU 00000000:9B:00.0
+    FB Memory Usage
+        Total                                          : 49140 MiB
+        Reserved                                       : 630 MiB
+        Used                                           : 1 MiB
+        Free                                           : 48510 MiB
+    BAR1 Memory Usage
+        Total                                          : 32768 MiB
+        Used                                           : 1 MiB
+        Free                                           : 32767 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : 0 MiB
+        Used                                           : 0 MiB
+        Free                                           : 0 MiB
+
+GPU 00000000:C7:00.0
+    FB Memory Usage
+        Total                                          : 49140 MiB
+        Reserved                                       : 630 MiB
+        Used                                           : 1 MiB
+        Free                                           : 48510 MiB
+    BAR1 Memory Usage
+        Total                                          : 32768 MiB
+        Used                                           : 1 MiB
+        Free                                           : 32767 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : 0 MiB
+        Used                                           : 0 MiB
+        Free                                           : 0 MiB
+
+GPU 00000001:17:00.0
+    FB Memory Usage
+        Total                                          : 49140 MiB
+        Reserved                                       : 630 MiB
+        Used                                           : 1 MiB
+        Free                                           : 48510 MiB
+    BAR1 Memory Usage
+        Total                                          : 32768 MiB
+        Used                                           : 1 MiB
+        Free                                           : 32767 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : 0 MiB
+        Used                                           : 0 MiB
+        Free                                           : 0 MiB
+
+GPU 00000001:6F:00.0
+    FB Memory Usage
+        Total                                          : 49140 MiB
+        Reserved                                       : 630 MiB
+        Used                                           : 1 MiB
+        Free                                           : 48510 MiB
+    BAR1 Memory Usage
+        Total                                          : 32768 MiB
+        Used                                           : 1 MiB
+        Free                                           : 32767 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : 0 MiB
+        Used                                           : 0 MiB
+        Free                                           : 0 MiB
+
+GPU 00000001:9B:00.0
+    FB Memory Usage
+        Total                                          : 49140 MiB
+        Reserved                                       : 630 MiB
+        Used                                           : 1 MiB
+        Free                                           : 48510 MiB
+    BAR1 Memory Usage
+        Total                                          : 32768 MiB
+        Used                                           : 1 MiB
+        Free                                           : 32767 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : 0 MiB
+        Used                                           : 0 MiB
+        Free                                           : 0 MiB
+
+GPU 00000001:C7:00.0
+    FB Memory Usage
+        Total                                          : 49140 MiB
+        Reserved                                       : 630 MiB
+        Used                                           : 1 MiB
+        Free                                           : 48510 MiB
+    BAR1 Memory Usage
+        Total                                          : 32768 MiB
+        Used                                           : 1 MiB
+        Free                                           : 32767 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : 0 MiB
+        Used                                           : 0 MiB
+        Free                                           : 0 MiB
+

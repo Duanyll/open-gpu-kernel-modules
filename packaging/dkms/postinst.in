@@ -1,0 +1,26 @@
+#!/bin/sh
+# Build/install the DKMS modules for every installed kernel that has headers, from the vendored
+# patched source (offline). Failure on the running kernel is fatal; failure on other kernels warns
+# but does not abort. Does NOT reload the running nvidia module — new build takes effect on next
+# (re)load / reboot.
+set -e
+NAME=@DKMS_NAME@
+VER=@VER@
+case "$1" in
+  configure)
+    dkms add -m "$NAME" -v "$VER" || true
+    running=$(uname -r)
+    for kdir in /lib/modules/*/build; do
+      [ -e "$kdir" ] || continue
+      kver=$(basename "$(dirname "$kdir")")
+      if dkms build -m "$NAME" -v "$VER" -k "$kver" \
+         && dkms install -m "$NAME" -v "$VER" -k "$kver" --force; then
+        :
+      else
+        echo "$NAME: DKMS build/install failed for kernel $kver" >&2
+        [ "$kver" = "$running" ] && exit 1
+      fi
+    done
+    ;;
+esac
+exit 0

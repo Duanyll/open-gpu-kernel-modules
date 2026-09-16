@@ -1,0 +1,68 @@
+
+==============NVSMI LOG==============
+
+Timestamp                                 : Tue Jul 14 01:39:45 2026
+Driver Version                            : 580.95.05
+CUDA Version                              : 13.0
+
+Attached GPUs                             : 4
+GPU 00000000:01:00.0
+    FB Memory Usage
+        Total                             : 49140 MiB
+        Reserved                          : 632 MiB
+        Used                              : 1 MiB
+        Free                              : 48508 MiB
+    BAR1 Memory Usage
+        Total                             : 256 MiB
+        Used                              : 2 MiB
+        Free                              : 254 MiB
+    Conf Compute Protected Memory Usage
+        Total                             : 0 MiB
+        Used                              : 0 MiB
+        Free                              : 0 MiB
+
+GPU 00000000:81:00.0
+    FB Memory Usage
+        Total                             : 49140 MiB
+        Reserved                          : 632 MiB
+        Used                              : 1 MiB
+        Free                              : 48508 MiB
+    BAR1 Memory Usage
+        Total                             : 256 MiB
+        Used                              : 2 MiB
+        Free                              : 254 MiB
+    Conf Compute Protected Memory Usage
+        Total                             : 0 MiB
+        Used                              : 0 MiB
+        Free                              : 0 MiB
+
+GPU 00000000:C1:00.0
+    FB Memory Usage
+        Total                             : 49140 MiB
+        Reserved                          : 632 MiB
+        Used                              : 1 MiB
+        Free                              : 48508 MiB
+    BAR1 Memory Usage
+        Total                             : 256 MiB
+        Used                              : 2 MiB
+        Free                              : 254 MiB
+    Conf Compute Protected Memory Usage
+        Total                             : 0 MiB
+        Used                              : 0 MiB
+        Free                              : 0 MiB
+
+GPU 00000000:C2:00.0
+    FB Memory Usage
+        Total                             : 49140 MiB
+        Reserved                          : 632 MiB
+        Used                              : 1 MiB
+        Free                              : 48508 MiB
+    BAR1 Memory Usage
+        Total                             : 256 MiB
+        Used                              : 2 MiB
+        Free                              : 254 MiB
+    Conf Compute Protected Memory Usage
+        Total                             : 0 MiB
+        Used                              : 0 MiB
+        Free                              : 0 MiB
+

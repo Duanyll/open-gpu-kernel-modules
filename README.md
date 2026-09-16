@@ -1,4 +1,4 @@
-# NVIDIA driver 615.71.09 with P2P for RTX 30, 40, and 50 series
+# NVIDIA driver 615.71.09 with P2P and experimental 48 GB RTX 4090 support
 
 Patched NVIDIA kernel modules for GPU-to-GPU transfers over PCIe BAR1 or NVLink,
 including between generations. No extra NVIDIA module parameters are needed.
@@ -10,9 +10,10 @@ Based on [tinygrad's P2P patch](https://github.com/tinygrad/open-gpu-kernel-modu
 The patch supports RTX 30-, 40-, and 50-series GPUs, including models below the
 3090, 4090, and 5090.
 
-For PCIe P2P, each GPU needs Resizable BAR and a BAR1 aperture large enough to map
-its usable VRAM. The IOMMU must be configured for passthrough. Consumer Turing
-(RTX 20 series) is not supported by the BAR1 path.
+For the static PCIe P2P path, each GPU needs Resizable BAR and a BAR1 aperture
+large enough to map its usable VRAM. The experimental 48 GB path below maps
+individual allocations through a smaller BAR1. The IOMMU must be configured for
+passthrough. Consumer Turing (RTX 20 series) is not supported by the BAR1 path.
 
 Same-generation pairs only need the patched kernel modules. The models can differ,
 such as RTX 5090 and RTX PRO 6000 Blackwell. Mixed-generation pairs, such as RTX 3090
@@ -20,6 +21,25 @@ and RTX 5090, also need the `libcuda` patch below.
 
 NVLink is used where available; other pairs use PCIe BAR1. This also works in systems
 with both NVLink-connected pairs and GPUs without NVLink.
+
+## Experimental: 48 GB RTX 4090 with 32 GB BAR1
+
+The `615.71.09-p2p-48g` branch includes Method 3 for explicit peer allocations on
+48 GB-modded RTX 4090s. This 615 port has build and host-test coverage only; it has
+not been validated on GPUs. The hardware results in `docs/48g-4090-p2p/` describe
+earlier driver versions.
+
+- Use a homogeneous 48 GB RTX 4090 node. Pairs with one static and one dynamic
+  BAR1 mapping do not advertise BAR1 P2P support.
+- Use allocation-specific peer access, such as NCCL's `P2P/CUMEM` transport.
+  Peer-mapped allocations must fit in available BAR1 space; the rest of VRAM can
+  hold allocations that peers do not access. Legacy whole-device peer access
+  does not provide 48 GB of peer-mapped memory through a 32 GB aperture.
+- UVM managed-memory peer migration and physical peer copies are unsupported
+  on the dynamic path.
+
+See the [615 port and validation notes](docs/48g-4090-p2p/615-port.md) before testing.
+For a Debian DKMS package, see [packaging/dkms](packaging/dkms/README.md).
 
 ## How it works
 

@@ -1,0 +1,6 @@
+Visible GPUs: 4, buffer=256MB
+   self    noP2P    noP2P    noP2P    <- GPU0 as src (GB/s, row=src col=dst)
+  noP2P     self    noP2P    noP2P    <- GPU1 as src (GB/s, row=src col=dst)
+  noP2P    noP2P     self    noP2P    <- GPU2 as src (GB/s, row=src col=dst)
+  noP2P    noP2P    noP2P     self    <- GPU3 as src (GB/s, row=src col=dst)
+done
