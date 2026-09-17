@@ -10,12 +10,12 @@ vendored into the `.deb`, so DKMS builds it **fully offline** on the target mach
 ## Install (from a release asset)
 
 ```sh
-sudo apt install ./nvidia-open-p2p-dkms_<ver>-1_all.deb
+sudo apt install ./nvidia-open-p2p-dkms_615.71.09-2+villa1_all.deb
 ```
 
 It `Conflicts`/`Replaces` `nvidia-kernel-open-dkms` and `Provides: nvidia-kernel-<ver>`, so apt
-swaps the stock kernel package cleanly and the userspace (`nvidia-driver-cuda`, `libcuda1`, …) stays
-in place. The postinst builds and installs the modules for every installed kernel that has headers;
+swaps the stock kernel package. Its exact firmware dependency requires the corresponding
+NVIDIA package release. The postinst builds and installs the modules for every installed kernel that has headers;
 it does **not** reload the running driver — the new modules take effect on the next reboot.
 
 **Supported base:** Debian / NVIDIA CUDA apt repo package names (`nvidia-kernel-open-dkms`,
@@ -26,15 +26,20 @@ the kernel module version (`615.71.09` on this branch) before rebooting. Other d
 ## Build
 
 ```sh
-packaging/dkms/build-deb.sh            # -> packaging/dkms/nvidia-open-p2p-dkms_<ver>-1_all.deb
+packaging/dkms/build-deb.sh
 ```
 
-Needs `dpkg-deb`. Version is read from `version.mk` (`NVIDIA_VERSION`), so the same packaging works
-on every `<ver>-p2p[-48g]` branch — nothing here is version-specific.
+Needs `dpkg-deb` and Python 3. Package and upstream dependency versions come from
+[`release.json`](../release.json); the driver version must match `version.mk`.
+The package filename includes its Villa revision, currently `615.71.09-2+villa1`.
 
 In a Git checkout, the package contains source from **committed `HEAD`**. Commit source
 changes before building; uncommitted edits are not included. The 615 port's current
 validation scope is recorded in [615-port.md](../../docs/48g-4090-p2p/615-port.md).
+
+The separately packaged [patched libcuda](../libcuda/README.md) provides the P2P and
+DMA-BUF GDR userspace changes. Install the two packages with matching NVIDIA userspace
+before testing the driver on a GPU host.
 
 ## Why only `dkms.conf` is hand-written
 

@@ -1,0 +1,10 @@
+{
+  "driver_version": "615.71.09",
+  "upstream_version": "615.71.09-2",
+  "package_version": "615.71.09-2+villa1",
+  "libcuda_url": "https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/libcuda1_615.71.09-2_amd64.deb",
+  "libcuda_deb_sha256": "75643aab978f99c52d6e8e40ac28dd56182ca187d2dc1de581e755ac2ecd10c6",
+  "libcuda_original_sha256": "85a8cc8cf00419ceb295ec62c481d05b4cdbdab10f25c5375d6d24bdbe00b4d9",
+  "libcuda_patched_sha256": "d1c67b4611680afc093d8d364edd82ca7e56c98fed02c3b8efaa2d96f664eb4a",
+  "patch_set": "all"
+}

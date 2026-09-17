@@ -1,11 +1,11 @@
 Package: @PKG@
-Version: @VER@-1
+Version: @PACKAGE_VER@
 Section: kernel
 Priority: optional
 Architecture: all
 Maintainer: duanyll <duanyll@outlook.com>
-Depends: dkms (>= 3.1.8), firmware-nvidia-gsp (>= @VER@), g++
-Provides: nvidia-kernel-@VER@, nvidia-kernel-open-dkms (= @VER@-1)
+Depends: dkms (>= 3.1.8), firmware-nvidia-gsp (= @UPSTREAM_VER@), g++
+Provides: nvidia-kernel-@VER@, nvidia-kernel-open-dkms (= @UPSTREAM_VER@)
 Conflicts: nvidia-kernel-open-dkms, nvidia-kernel-dkms
 Replaces: nvidia-kernel-open-dkms
 Description: NVIDIA open GPU kernel modules with PCIe P2P + 48G-4090 support (DKMS)
