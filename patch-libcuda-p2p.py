@@ -12,7 +12,8 @@ import sys
 import tempfile
 
 
-# Each rewrite is (byte offset in the signature, replacement bytes).
+# A rewrite is (byte offset in the signature, replacement bytes); a signature
+# may require several rewrites, all validated before any library is written.
 P2P_PATCHES = (
     (
         "can-access predicate",
@@ -113,18 +114,61 @@ P2P_PATCHES = (
 # https://harrychen.xyz/2026/05/20/enable-gpudirect-rdma-on-rtx-5090/
 # https://gist.github.com/Harry-Chen/0d8c941e80c84e5482a46e3f5bcdb63d
 # The exact private layout is intentional: layout drift needs disassembly review.
-# This adds bit 0x20 without bypassing global GDR or kernel DMA-BUF capability checks.
+# All three compiler copies are required: cuInit inlines the first device and
+# the remaining-device loop. Each has an alternate store from the original
+# register, so both OR immediates must retain bit 0x20. See docs/libcuda-gdr-615.md.
+# Global GDR and kernel DMA-BUF checks remain intact.
 GDR_PATCHES = (
     (
-        "DMA-BUF GDR capability initialization (615 layout)",
+        "DMA-BUF GDR initialization, standalone (615 layout)",
         """
         0f b6 87 1c 8f 00 00  # movzx eax, byte ptr [rdi + 0x8f1c]
         89 c2                 # mov edx, eax
         83 ca 40              # or edx, 0x40 -> or edx, 0x60
         83 bf 60 0c 00 00 08  # cmp dword ptr [rdi + 0xc60], 8
         88 97 1c 8f 00 00     # mov byte ptr [rdi + 0x8f1c], dl
+        76 ??                 # jbe generation <= 8
+        f6 87 a5 8f 00 00 01  # test alternate-store capability
+        74 ??
+        c7 87 20 8f 00 00 c8 00 00 00
+        83 c8 c0              # or eax, 0xc0 -> or eax, 0xe0
+        88 87 1c 8f 00 00     # store from original eax, not patched edx
         """,
-        (11, b"\x60"),
+        ((11, b"\x60"), (48, b"\xe0")),
+    ),
+    (
+        "DMA-BUF GDR initialization, first device (615 layout)",
+        """
+        0f b6 87 1c 8f 00 00
+        89 c1
+        83 c9 40
+        83 bf 60 0c 00 00 08
+        88 8f 1c 8f 00 00
+        0f 86 ?? ?? ?? ??
+        f6 87 a5 8f 00 00 01
+        0f 84 ?? ?? ?? ??
+        c7 87 20 8f 00 00 c8 00 00 00
+        83 c8 c0
+        88 87 1c 8f 00 00
+        """,
+        ((11, b"\x60"), (56, b"\xe0")),
+    ),
+    (
+        "DMA-BUF GDR initialization, remaining devices (615 layout)",
+        """
+        0f b6 b0 1c 8f 00 00
+        41 89 f0
+        41 83 c8 40
+        83 b8 60 0c 00 00 08
+        44 88 80 1c 8f 00 00
+        76 ??
+        f6 80 a5 8f 00 00 01
+        74 ??
+        c7 80 20 8f 00 00 c8 00 00 00
+        83 ce c0
+        40 88 b0 1c 8f 00 00
+        """,
+        ((13, b"\x60"), (51, b"\xe0")),
     ),
 )
 
@@ -158,21 +202,25 @@ def executable_ranges(data):
 def plan_patches(data, patches):
     ranges = executable_ranges(data)
     changes = []
-    for name, signature, (relative, replacement) in patches:
+    for name, signature, rewrites in patches:
+        if isinstance(rewrites[0], int):
+            rewrites = (rewrites,)
         tokens = re.sub(r"#.*", "", signature).split()
-        original = bytes.fromhex(" ".join(tokens[relative:relative + len(replacement)]))
         parts = [b"." if token == "??" else re.escape(bytes.fromhex(token)) for token in tokens]
-        parts[relative:relative + len(replacement)] = [
-            b"(?:" + re.escape(original) + b"|" + re.escape(replacement) + b")"
-        ]
+        for relative, replacement in sorted(rewrites, reverse=True):
+            original = bytes.fromhex(" ".join(tokens[relative:relative + len(replacement)]))
+            parts[relative:relative + len(replacement)] = [
+                b"(?:" + re.escape(original) + b"|" + re.escape(replacement) + b")"
+            ]
         pattern = re.compile(b"".join(parts), re.DOTALL)
         matches = sorted({match.start() for start, end in ranges
                           for match in pattern.finditer(data, start, end)})
         if len(matches) != 1:
             raise ValueError(f"{name} signature matched {len(matches)} times instead of once")
-        offset = matches[0] + relative
-        before = data[offset:offset + len(replacement)]
-        changes.append((name, offset, before, replacement))
+        for relative, replacement in rewrites:
+            offset = matches[0] + relative
+            before = data[offset:offset + len(replacement)]
+            changes.append((name, offset, before, replacement))
     return changes
 
 

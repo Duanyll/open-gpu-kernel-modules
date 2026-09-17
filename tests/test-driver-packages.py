@@ -59,8 +59,11 @@ def main():
         assert hashlib.sha256(after).hexdigest() == RELEASE["libcuda_patched_sha256"]
         assert len(before) == len(after)
         changes = [(i, a, b) for i, (a, b) in enumerate(zip(before, after)) if a != b]
-        assert changes == [(0x31ce26, 0x74, 0xeb), (0x31cf2b, 0x74, 0xeb),
-                           (0x31d031, 0x74, 0xeb), (0x4aae5b, 0x40, 0x60),
+        assert changes == [(0x1b3e2b, 0x40, 0x60), (0x1b3e51, 0xc0, 0xe0),
+                           (0x31ce26, 0x74, 0xeb), (0x31cf2b, 0x74, 0xeb),
+                           (0x31d031, 0x74, 0xeb), (0x337022, 0x40, 0x60),
+                           (0x33704f, 0xc0, 0xe0), (0x4aae5b, 0x40, 0x60),
+                           (0x4aae80, 0xc0, 0xe0),
                            (0x4b8664, 0x74, 0xeb)]
         for name in ("libcuda.so", "libcuda.so.1"):
             link = custom / relative.parent / name
@@ -72,9 +75,9 @@ def main():
         subprocess.run(["md5sum", "--check", "DEBIAN/md5sums"], cwd=custom, check=True,
                        stdout=subprocess.DEVNULL)
         manifest = json.loads((custom / "usr/share/doc/libcuda1-villa/build-manifest.json").read_text())
-        assert len(manifest["changes"]) == 5
+        assert len(manifest["changes"]) == 10
         assert manifest["libcuda_patched_sha256"] == RELEASE["libcuda_patched_sha256"]
-    print("PASS: package identities, dependencies, root ownership, library links, checksums and five reviewed changes")
+    print("PASS: package identities, dependencies, root ownership, library links, checksums and ten reviewed changes")
 
 
 if __name__ == "__main__":

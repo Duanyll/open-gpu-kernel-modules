@@ -10,7 +10,7 @@ vendored into the `.deb`, so DKMS builds it **fully offline** on the target mach
 ## Install (from a release asset)
 
 ```sh
-sudo apt install ./nvidia-open-p2p-dkms_615.71.09-2+villa1_all.deb
+sudo apt install ./nvidia-open-p2p-dkms_615.71.09-2+villa2_all.deb
 ```
 
 It `Conflicts`/`Replaces` `nvidia-kernel-open-dkms` and `Provides: nvidia-kernel-<ver>`, so apt
@@ -31,7 +31,7 @@ packaging/dkms/build-deb.sh
 
 Needs `dpkg-deb` and Python 3. Package and upstream dependency versions come from
 [`release.json`](../release.json); the driver version must match `version.mk`.
-The package filename includes its Villa revision, currently `615.71.09-2+villa1`.
+The package filename includes its Villa revision, currently `615.71.09-2+villa2`.
 
 In a Git checkout, the package contains source from **committed `HEAD`**. Commit source
 changes before building; uncommitted edits are not included. The 615 port's current

@@ -13,10 +13,10 @@ with Python 3.11 or newer and `dpkg-deb`:
 ```sh
 python3 packaging/libcuda/build-deb.py \
   libcuda1_615.71.09-2_amd64.deb \
-  libcuda1-villa_615.71.09-2+villa1_amd64.deb
+  libcuda1-villa_615.71.09-2+villa2_amd64.deb
 ```
 
-The build checks the official package and library SHA-256 values, applies all five
+The build checks the official package and library SHA-256 values, applies all ten
 reviewed byte changes, and verifies the final library hash. Unknown inputs and existing
 output files are rejected. Building and installing the package require no network access
 once the input deb and installation dependencies are available.
@@ -28,8 +28,8 @@ On the test host, select the matching NVIDIA userspace and custom kernel package
 ```sh
 sudo apt-get --simulate install \
   nvidia-driver-cuda=615.71.09-2 \
-  nvidia-open-p2p-dkms=615.71.09-2+villa1 \
-  libcuda1-villa=615.71.09-2+villa1
+  nvidia-open-p2p-dkms=615.71.09-2+villa2 \
+  libcuda1-villa=615.71.09-2+villa2
 ```
 
 Review the proposed dependency changes and any existing driver pinning, then repeat
@@ -43,7 +43,7 @@ sha256sum /usr/lib/x86_64-linux-gnu/libcuda.so.615.71.09
 ```
 
 The expected library SHA-256 is
-`d1c67b4611680afc093d8d364edd82ca7e56c98fed02c3b8efaa2d96f664eb4a`.
+`db526c80bc77e510c6ef11bc5fc283240971ee657596407cdeefcb2c1bf579ad`.
 The input hash and individual changes are installed in
 `/usr/share/doc/libcuda1-villa/build-manifest.json`.
 

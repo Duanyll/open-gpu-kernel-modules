@@ -75,9 +75,10 @@ separate console mapping.
 | `--patch gdr` | Add the experimental GeForce DMA-BUF/GDR capability bit. |
 | `--patch all` | Apply both sets. |
 
-The GDR patch is reviewed against **x86-64 libcuda 615.71.09**. Its initialization
-and attribute checks have been verified by disassembly; GPU runtime behavior on
-615 is untested. It does not enable legacy `nvidia-peermem`. See the
+The GDR patch is reviewed against **x86-64 libcuda 615.71.09**. Capability queries,
+DMA-BUF export and mlx5 memory registration pass on eight 48 GiB RTX 4090s with
+the complete patch. RDMA data transfer and other hardware need their own validation.
+It does not enable legacy `nvidia-peermem`. See the
 [binary analysis and validation notes](docs/libcuda-gdr-615.md).
 
 Start with a separate library copy for a CUDA test process:

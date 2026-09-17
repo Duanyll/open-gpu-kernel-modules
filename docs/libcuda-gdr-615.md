@@ -1,8 +1,9 @@
 # DMA-BUF GDR capability patch in libcuda 615.71.09
 
-Date: 2026-09-16. Scope: x86-64 Linux libcuda, static binary analysis and patcher
-tests. No GPU, DMA-BUF export, NIC memory registration, or NCCL runtime validation
-has been performed with this 615 patch.
+Updated: 2026-09-17. Scope: x86-64 Linux libcuda 615.71.09, static analysis,
+machine-code branch tests, and eight 48 GiB RTX 4090 GPUs on Villa node27.
+The complete patch passes capability queries, DMA-BUF export and mlx5 MR registration
+on all eight GPUs. End-to-end RDMA and NCCL acceptance are separate checks.
 
 ## Finding
 
@@ -20,7 +21,10 @@ inferred solely from a pattern match.
 | Original → patched instruction | `83 ca 40` → `83 ca 60` | `83 ca 40` → `83 ca 60` |
 | Compared private field / immediate | `+0xc60` / `8` | `+0xc60` / `8` |
 
-The patch adds `0x20` to the initialization OR, preserving `0x40`. It does not
+The standalone site alone is insufficient in 615: `cuInit` uses two inlined copies.
+All three copies must add `0x20` to the initialization OR, preserving `0x40`. Each
+also has an alternate assignment from the original register (`OR 0xc0`), which
+must become `OR 0xe0` to retain the new capability on that branch. The patch does not
 replace an API's result with success or bypass the global GDR and DMA-BUF checks.
 The author's [automatic locator](https://gist.github.com/Harry-Chen/0d8c941e80c84e5482a46e3f5bcdb63d/63b6be7e7349f9ae95f100299fd46d974175987f)
 recognizes the instruction shape but defaults to the old private layout, so 615
@@ -78,10 +82,42 @@ searches only file-backed executable `PT_LOAD` ranges. The reviewed 615 GDR patt
 fixes both private-field displacements and the comparison immediate. Future
 layout changes are rejected instead of silently accepted.
 
-This establishes the same initializer/attribute relationship as the 590 method.
-It does not establish all initialization paths or the complete DMA-BUF export
-call chain on a running 615 driver. In particular, attribute success alone would
-not prove successful export or GDR transport.
+## Inlined initializers and runtime verification
+
+The initial standalone-only patch passed static signature checks but failed node27
+acceptance: all three attributes remained 0 and export returned 801. Runtime inspection
+found the global GDR byte was 1, `dev+0x8e6c` was `0x09`, and `dev+0x8f1c` was `0x58`.
+The missing bit was in device initialization, not the global or kernel export checks.
+
+The `cuInit` code at `0x337017` initializes the first device, then a loop at `0x1b3e1e`
+initializes the remaining devices. These compiler copies use ECX and R8D respectively,
+so Harry's EDX instruction template does not match them. Independent library copies
+gave this A/B result without changing the installed library:
+
+| Added patch | Device capability bytes after cuInit |
+| --- | --- |
+| First-device inline OR only | GPU 0: `0x78`; GPU 1–7: `0x58` |
+| Remaining-device inline OR only | GPU 0: `0x58`; GPU 1–7: `0x78` |
+| Both inline ORs | GPU 0–7: `0x78` |
+
+The complete GDR rewrite set is:
+
+| Initializer | Normal OR `40 → 60` | Alternate OR `c0 → e0` |
+| --- | --- | --- |
+| Standalone | `0x4aae5b` | `0x4aae80` |
+| First device | `0x337022` | `0x33704f` |
+| Remaining devices | `0x1b3e2b` | `0x1b3e51` |
+
+The alternate branches overwrite the capability from the original EAX/ESI value;
+changing only the first OR would lose `0x20` there. Unicorn executes both generation
+and alternate-store branches for all three reviewed sequences, with several initial
+capability values, to check that other bits survive. The node27 Ada cards use the
+`generation <= 8` path; the other path has machine-code tests, not Blackwell hardware
+validation.
+
+With all six GDR changes, node27 reports attributes 110/116/124 = 1 on every GPU,
+exports a 32 MiB DMA-BUF with flags=0, and registers/deregisters it with `mlx5_0`
+using `ibv_reg_dmabuf_mr`. This proves export and MR registration, not data transfer.
 
 ## Integration and verification
 
@@ -99,21 +135,23 @@ Actual 615 binary checks passed:
 
 | Selection | Changed file offsets | Output SHA-256 |
 | --- | --- | --- |
-| GDR only | `0x4aae5b` | `81e631b7ccb8eceb6771ee3c5e7d645adac6e11b0d970351c4c967ed4df0b8da` |
-| P2P + GDR | `0x31ce26`, `0x31cf2b`, `0x31d031`, `0x4aae5b`, `0x4b8664` | `d1c67b4611680afc093d8d364edd82ca7e56c98fed02c3b8efaa2d96f664eb4a` |
+| GDR only | Six sites in the table above | `e08a96ee391219dfb270130e6bb48ee3422033fb75073e734542ec9fc29117ee` |
+| P2P + GDR | Six GDR sites plus `0x31ce26`, `0x31cf2b`, `0x31d031`, `0x4b8664` | `db526c80bc77e510c6ef11bc5fc283240971ee657596407cdeefcb2c1bf579ad` |
 
-Byte comparison confirmed exactly one and five changes respectively, with no
+Byte comparison confirmed exactly six and ten changes respectively, with no
 other file changes and an untouched original. Re-running either selection reports
-already-applied changes. Ten regression tests pass, including a real-binary check,
+already-applied changes. Thirteen regression tests pass, including a real-binary check,
 duplicate signatures, unknown layout, invalid ELF, non-executable decoys, no writes
-on incomplete matches, independent selections, backups, symlinks, and idempotence:
+on incomplete matches, missing inline copies, upgrading the standalone-only patch,
+branch execution, independent selections, backups, symlinks, and idempotence:
 
 ```sh
-LIBCUDA_615=/path/to/original/libcuda.so.615.71.09 python3 tests/test-libcuda-patch.py -v
+LIBCUDA_615=/path/to/original/libcuda.so.615.71.09 uv run --with unicorn python tests/test-libcuda-patch.py -v
 ```
 
-Without `LIBCUDA_615`, the real-binary test is skipped; the remaining tests use
-synthetic ELF fixtures. NVIDIA binaries are not stored in this repository.
+Without `LIBCUDA_615`, the real-binary test is skipped. Without Unicorn, branch
+execution is skipped. Other tests use synthetic ELF fixtures. NVIDIA binaries are
+not stored in this repository.
 
 For GPU acceptance, check attributes 110/116/124, an actual
 `cuMemGetHandleForAddressRange(... DMA_BUF_FD, flags=0)` export, NIC MR registration,
