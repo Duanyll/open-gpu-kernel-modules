@@ -5,29 +5,34 @@ See https://github.com/tinygrad/open-gpu-kernel-modules (various branches) for m
 
 ## What this `-48g` branch adds
 
-On top of the base P2P mod, this branch (`590.48.01-p2p-48g`) adds support for **48GB-modded
-RTX 4090** cards, whose 32GB PCIe BAR1 is smaller than their 48GB framebuffer. Stock BAR1 P2P
-requires BAR1 ≥ VRAM (it identity-maps the whole framebuffer), so it cannot reach allocations
-above 32GB. New elements:
+On top of the base P2P mod, this branch (`590.48.01-p2p-48g`) adds support for 48 GB-modded
+RTX 4090s, whose 32 GB BAR1 is smaller than their 48 GB framebuffer. Stock BAR1 P2P
+identity-maps the whole framebuffer, so it cannot reach allocations above 32 GB.
 
-- **Method 3 — dynamic per-allocation BAR1 P2P** (`docs/48g-4090-p2p/`). Each peer-mapped
-  allocation is mapped into a BAR1 window on demand; the GMMU translates the ≤32GB BAR1 VA to the
-  allocation's real framebuffer page. Combined with the **cuMem** peer-access path that modern
-  NCCL/PyTorch use by default (`NCCL_CUMEM_ENABLE=1`), only the small communication buffers enter
-  BAR1, so **the full ~48GB stays usable for model/activation memory while P2P is active** —
-  verified on hardware: 38GB resident per GPU **and** NCCL all-reduce `via P2P/CUMEM`, data
-  correct. Runs entirely in the kernel driver (no userspace / `libcuda` patch, no `OverrideFbSize`
-  cap). Bandwidth (with `iommu=pt` + ACS off): ~26 GB/s peer copy, ~25 GB/s NCCL all-reduce busbw;
-  NCCL needs `NCCL_P2P_LEVEL=SYS`. (Method 3 is shared with the `595.71.05-p2p-48g` branch.)
-  > **Caveat:** apps using the *legacy* `cudaDeviceEnablePeerAccess` API (e.g. cuda-samples
-  > `simpleP2P`) open the peer's whole device, so they stay capped at ~32GB (BAR1 size) and will
-  > not see all 48GB — use a cuMem/NCCL workload. Details:
-  > [`method3-usable-vram-cumem-vs-legacy.md`](docs/48g-4090-p2p/method3-usable-vram-cumem-vs-legacy.md),
-  > [`method3-dynamic-bar1-p2p.md`](docs/48g-4090-p2p/method3-dynamic-bar1-p2p.md),
-  > [`method3-test-results.md`](docs/48g-4090-p2p/method3-test-results.md).
-- **Offline DKMS package** (`packaging/dkms/`) — builds `nvidia-open-p2p-dkms`, a drop-in
-  replacement for the CUDA-repo `nvidia-kernel-open-dkms` that vendors this patched source and
-  builds fully offline on the target. See [`packaging/dkms/README.md`](packaging/dkms/README.md).
+- **Method 3: dynamic per-allocation BAR1 P2P** ([`docs/48g-4090-p2p/`](docs/48g-4090-p2p/)).
+  Each peer-mapped allocation gets its own BAR1 window, translated by the GMMU to the
+  allocation's real framebuffer pages. With the cuMem peer-access path that NCCL and
+  PyTorch use by default (`P2P/CUMEM`), only communication buffers take BAR1 space and
+  the full 48 GB stays usable. Kernel-only: no `libcuda` patch, no `OverrideFbSize` cap.
+  With `iommu=pt` and ACS off: ~26 GB/s peer copy, ~25 GB/s NCCL all-reduce busbw. Set
+  `NCCL_P2P_LEVEL=SYS`. Legacy whole-device peer access (`cudaDeviceEnablePeerAccess`,
+  e.g. cuda-samples `simpleP2P`) is capped at the 32 GB aperture. Details:
+  [usable VRAM](docs/48g-4090-p2p/method3-usable-vram-cumem-vs-legacy.md),
+  [design](docs/48g-4090-p2p/method3-dynamic-bar1-p2p.md),
+  [test results](docs/48g-4090-p2p/method3-test-results.md).
+- **Offline DKMS package** ([`packaging/dkms/`](packaging/dkms/README.md)): builds
+  `nvidia-open-p2p-dkms`, a drop-in replacement for the CUDA-repo `nvidia-kernel-open-dkms`
+  that vendors this patched source and builds offline on the target.
+
+The [`615.71.09-p2p-48g`](https://github.com/Duanyll/open-gpu-kernel-modules/tree/615.71.09-p2p-48g)
+branch adds GeForce GPUDirect RDMA and is what we run in production.
+
+### Tuning tips
+
+- **GEMM slows down while FSDP overlaps compute with communication?** Lower the NCCL
+  channel count. Within one node, `NCCL_MAX_NCHANNELS=1` still saturates PCIe 4.0 and
+  minimizes the impact on GEMM. With the default channel count, communication competes
+  with compute for some memory-access resource on AD102.
 
 The rest of this README describes the base P2P mod and is unchanged.
 
