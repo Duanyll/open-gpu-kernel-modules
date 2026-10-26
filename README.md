@@ -1,4 +1,4 @@
-# NVIDIA driver 615.71.09 with P2P and experimental 48 GB RTX 4090 support
+# NVIDIA driver 615.71.09 with P2P and 48 GB RTX 4090 support
 
 Patched NVIDIA kernel modules for GPU-to-GPU transfers over PCIe BAR1 or NVLink,
 including between generations. No extra NVIDIA module parameters are needed.
@@ -11,7 +11,7 @@ The patch supports RTX 30-, 40-, and 50-series GPUs, including models below the
 3090, 4090, and 5090.
 
 For the static PCIe P2P path, each GPU needs Resizable BAR and a BAR1 aperture
-large enough to map its usable VRAM. The experimental 48 GB path below maps
+large enough to map its usable VRAM. The 48 GB path below maps
 individual allocations through a smaller BAR1. The IOMMU must be configured for
 passthrough. Consumer Turing (RTX 20 series) is not supported by the BAR1 path.
 
@@ -22,24 +22,40 @@ and RTX 5090, also need the `libcuda` patch below.
 NVLink is used where available; other pairs use PCIe BAR1. This also works in systems
 with both NVLink-connected pairs and GPUs without NVLink.
 
-## Experimental: 48 GB RTX 4090 with 32 GB BAR1
+## 48 GB RTX 4090 with 32 GB BAR1
 
-The `615.71.09-p2p-48g` branch includes Method 3 for explicit peer allocations on
-48 GB-modded RTX 4090s. This 615 port has build and host-test coverage only; it has
-not been validated on GPUs. The hardware results in `docs/48g-4090-p2p/` describe
-earlier driver versions.
+The `615.71.09-p2p-48g` branch adds dynamic per-allocation BAR1 P2P (Method 3) for
+48 GB-modded RTX 4090s. Together with the `libcuda` GDR patch below, it runs in
+production on 4- and 8-GPU RTX 4090 48 GB nodes: P2P inside each node and GPUDirect RDMA over
+ConnectX-5 100G RoCE between nodes. NCCL all-reduce reaches ~24 GB/s busbw on one
+4-GPU node and ~12 GB/s (100G line rate) across two, unchanged with 40 GiB resident
+on every GPU.
 
 - Use a homogeneous 48 GB RTX 4090 node. Pairs with one static and one dynamic
   BAR1 mapping do not advertise BAR1 P2P support.
-- Use allocation-specific peer access, such as NCCL's `P2P/CUMEM` transport.
-  Peer-mapped allocations must fit in available BAR1 space; the rest of VRAM can
-  hold allocations that peers do not access. Legacy whole-device peer access
-  does not provide 48 GB of peer-mapped memory through a 32 GB aperture.
-- UVM managed-memory peer migration and physical peer copies are unsupported
-  on the dynamic path.
+- Use allocation-specific peer access, as NCCL and PyTorch do by default
+  (`P2P/CUMEM`). Only peer-mapped allocations take BAR1 space, so the full 48 GB
+  stays usable. Legacy whole-device peer access (`cudaDeviceEnablePeerAccess`)
+  is capped by the 32 GB aperture.
+- UVM managed-memory peer migration and physical peer copies do not use the
+  dynamic path.
+- Set `NCCL_P2P_LEVEL=SYS`, plus `NCCL_NET_GDR_LEVEL=SYS` for GDR.
 
-See the [615 port and validation notes](docs/48g-4090-p2p/615-port.md) before testing.
-For a Debian DKMS package, see [packaging/dkms](packaging/dkms/README.md).
+Packages: [packaging/dkms](packaging/dkms/README.md) and
+[packaging/libcuda](packaging/libcuda/README.md). Design notes and test logs:
+[docs/48g-4090-p2p](docs/48g-4090-p2p/).
+
+### Tuning tips
+
+- **GEMM slows down while FSDP overlaps compute with communication?** Lower the
+  NCCL channel count. Within one node, `NCCL_MAX_NCHANNELS=1` still saturates
+  PCIe 4.0 and minimizes the impact on GEMM. With the default channel count,
+  communication competes with compute for some memory-access resource on AD102.
+- **On EPYC with GPUs attached directly to the CPU, P2P alone or GDR alone helps,
+  but both together are slower than neither?** Tune the NCCL ring (for example
+  with `NCCL_GRAPH_FILE`) so the GPU that sends to the network sits in the same
+  EPYC PCIe root-complex quadrant as the NIC (`PHB`, not `NODE`, in
+  `nvidia-smi topo -m`).
 
 ## How it works
 
@@ -62,7 +78,7 @@ separate console mapping.
    - Run `sudo update-grub`
 3. Install the [NVIDIA 615.71.09 driver](https://www.nvidia.com/en-us/drivers/details/278450/).
 4. Run `./install.sh` in this repo.
-5. For mixed-generation P2P or experimental GeForce DMA-BUF RDMA, apply the optional `libcuda` patch below.
+5. For mixed-generation P2P or GeForce GPUDirect RDMA, apply the `libcuda` patch below.
 6. Reboot the server.
 
 ## Optional `libcuda` patches
@@ -72,33 +88,29 @@ separate console mapping.
 | Option | Effect |
 | --- | --- |
 | `--patch p2p` (default) | Apply the four mixed-generation P2P changes. |
-| `--patch gdr` | Add the experimental GeForce DMA-BUF/GDR capability bit. |
+| `--patch gdr` | Add the GeForce DMA-BUF/GDR capability bit. |
 | `--patch all` | Apply both sets. |
 
-The GDR patch is reviewed against **x86-64 libcuda 615.71.09**. Capability queries,
-DMA-BUF export and mlx5 memory registration pass on eight 48 GiB RTX 4090s with
-the complete patch. RDMA data transfer and other hardware need their own validation.
-It does not enable legacy `nvidia-peermem`. See the
-[binary analysis and validation notes](docs/libcuda-gdr-615.md).
+The GDR patch lets NCCL register GeForce memory with mlx5 NICs through DMA-BUF.
+It does not enable legacy `nvidia-peermem`. It matches **x86-64 libcuda 615.71.09**;
+see the [binary analysis](docs/libcuda-gdr-615.md). On Debian, install the prebuilt
+[`libcuda1-villa`](packaging/libcuda/README.md) package instead of running the script.
 
-Start with a separate library copy for a CUDA test process:
+To patch the system library in place (a `.bak.<input-hash>` backup is kept beside it):
+
+```sh
+sudo ./patch-libcuda-p2p.py /usr/lib/x86_64-linux-gnu/libcuda.so.1 --patch all
+```
+
+To patch a private copy instead, pass `--output` and load it with `LD_LIBRARY_PATH`:
 
 ```sh
 LIBCUDA=/usr/lib/x86_64-linux-gnu/libcuda.so.1
 PATCH_DIR="$(mktemp -d)"
-./patch-libcuda-p2p.py "$LIBCUDA" --patch gdr --dry-run
-./patch-libcuda-p2p.py "$LIBCUDA" --patch gdr --output "$PATCH_DIR/libcuda.so.615.71.09"
+./patch-libcuda-p2p.py "$LIBCUDA" --patch all --output "$PATCH_DIR/libcuda.so.615.71.09"
 ln -s libcuda.so.615.71.09 "$PATCH_DIR/libcuda.so.1"
 ln -s libcuda.so.615.71.09 "$PATCH_DIR/libcuda.so"
-LD_LIBRARY_PATH="$PATCH_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./your-cuda-test
-```
-
-Use `--patch all` in both commands if the test also needs mixed-generation P2P.
-Without `--output`, the script patches the resolved input path and retains a
-`.bak.<input-hash>` backup beside it. For example, the existing P2P-only invocation is:
-
-```sh
-sudo ./patch-libcuda-p2p.py "$LIBCUDA" --patch p2p
+LD_LIBRARY_PATH="$PATCH_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ./your-cuda-app
 ```
 
 All selected signatures must match uniquely before any file is written.

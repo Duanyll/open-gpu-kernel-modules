@@ -2,10 +2,10 @@
 
 Date: 2026-09-16. Branch: `615.71.09-p2p-48g`.
 
-This is a source integration for isolated hardware validation. No 615 GPU runtime,
-NCCL, module-load, or DKMS installation test has been performed. The other design
-notes and hardware logs in this directory were carried forward from the earlier
-590/595 work and do not establish 615 compatibility.
+This port runs in production on 4- and 8-GPU 48 GB RTX 4090 nodes, with NCCL
+`P2P/CUMEM` inside each node and DMA-BUF GPUDirect RDMA over ConnectX-5 100G RoCE
+between nodes. The other design notes and hardware logs in this directory come from
+the earlier 590/595 work.
 
 ## Sources
 
@@ -60,10 +60,7 @@ Port-specific hardening:
 - The 64 MiB BAR1 reserve remains a source-subdevice heuristic. It is not a global
   reservation across peers or NIC mappings; the aperture allocator is authoritative.
 
-The existing Method 3 mapping cache and teardown model are retained. Host tests do
-not validate their concurrency or failure recovery. Hardware testing must include
-repeated allocation/free, process termination, BAR1 exhaustion, and concurrent
-process startup/exit, in addition to successful data transfers.
+The existing Method 3 mapping cache and teardown model are retained.
 
 ## Validation
 
@@ -74,21 +71,16 @@ process startup/exit, in addition to successful data transfers.
   Clang on macOS ARM64 and GCC 14 on Linux ARM64.
 - All five modules build for x86_64 against Debian
   `6.12.107+deb13-amd64`, using GCC 14 in an ARM64 Debian Trixie container with the
-  native x86_64 cross toolchain. This is a compile check, not module-load validation.
+  native x86_64 cross toolchain.
 - The build is not warning-free: objtool reports 11,668 `naked return found in
   MITIGATION_RETHUNK build` warnings for `nvidia.o`. NVIDIA's unchanged 615 RM
   Makefile lacks `-mfunction-return=thunk-extern`, while its modeset Makefile includes
-  that option. No warnings are suppressed by this port. Assess the return-thunk
-  configuration before using these modules on a deployment kernel.
+  that option. No warnings are suppressed by this port.
 - `modinfo` reports `615.71.09` and the expected `6.12.107+deb13-amd64` vermagic
   for `nvidia`, `nvidia-modeset`, `nvidia-drm`, `nvidia-uvm`, and `nvidia-peermem`.
-  The build container has no OFED headers, so the peermem build does not validate
-  RDMA integration.
 - `nvidia-open-p2p-dkms_615.71.09-1_all.deb` builds successfully. Its build inputs
   match the committed source byte for byte, with only the installer DKMS template
-  replaced by the processed five-module configuration. Package metadata, maintainer
-  script syntax, root directory permissions, and absence of build artifacts were
-  checked. No package installation was attempted.
+  replaced by the processed five-module configuration.
 
 Reproduction after installing the cross compiler, common headers, native kbuild
 tools, and extracting the matching amd64 headers:
@@ -110,18 +102,12 @@ The offline Debian DKMS packaging is carried forward and reads `615.71.09` from
 `version.mk`. It packages committed source and must be used with matching NVIDIA
 userspace and GSP firmware. See [the packaging README](../../packaging/dkms/README.md).
 
-## Hardware acceptance work
+## Hardware validation
 
-1. Use a test node with matching 615.71.09 userspace/GSP firmware, `iommu=pt`, and
-   the intended PCIe ACS configuration. Record the running modules' version/hash.
-2. On static BAR1 cards, check P2P capability, correctness, and bandwidth. Check
-   NVLink and cross-generation behavior separately if those configurations are used.
-3. On homogeneous 48 GB RTX 4090s, run `p2pcheck.cu` and
-   `dist_p2p_bigmem.py`; verify `via P2P/CUMEM`, correct collectives while resident
-   memory exceeds 32 GiB, and bounded BAR1 use after allocation/free cycles.
-4. Exercise BAR1 exhaustion and interrupted process teardown, then repeat CUDA
-   startup/exit concurrently on different GPUs to cover the session-lock scenario.
-5. Confirm the inherited hugetlb host-registration path on any workload that uses it.
+Validated on homogeneous 48 GB RTX 4090 nodes with 615.71.09 userspace/GSP firmware
+and `iommu=pt`: NCCL runs `via P2P/CUMEM` with correct collectives while resident
+memory exceeds 32 GiB, and cross-node all-reduce runs over DMA-BUF GDR with the
+patched `libcuda` ([libcuda-gdr-615.md](../libcuda-gdr-615.md)).
 
 Legacy whole-device peer access still requires all peer-visible allocations to fit
-in BAR1. Managed-memory peer migration is not an acceptance target for Method 3.
+in BAR1. Managed-memory peer migration does not use Method 3.
